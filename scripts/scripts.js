@@ -104,11 +104,11 @@ function onToggle() {
         if(node.needsChildren) {
             node.needsChildren = false;
             node.children = [];
-            for (var childType in objectTypes[node.type].children) {
-                var range = objectTypes[node.type].children[childType];
-                var numChildren = rand(range[0],range[1]);
+            for (var index in objectTypes[node.type].children) {
+                var childTemplate = objectTypes[node.type].children[index];
+                var numChildren = rand(childTemplate.min,childTemplate.max);
                 for (var i = 0; i<numChildren; i++) {
-                    var childNode = generateNode(childType, node);
+                    var childNode = generateNode(childTemplate.type, node);
                     node.children.push(childNode);
                     domObjectForNode(childNode).appendTo($(this));
                 }
@@ -157,30 +157,51 @@ var planarAttributes = {
 var objectTypes = {
     multiverse : {
         typeName : "Multiverse",
-        children: {
-            planarCluster: [1, 3]
-        }
+        children: [
+            {
+                type: "planarCluster",
+                min: 1,
+                max: 3
+            }
+        ]
     },
     planarCluster : {
         typeName: "Planar Cluster",
-        children: {
-            materialPlane: [0, 1],
-            plane: [4, 10],
-            demiPlane: [0, 10]
-        },
+        children: [
+            {
+                type: "materialPlane",
+                min: 0,
+                max: 2
+            },
+            {
+                type: "plane",
+                min: 4,
+                max: 10
+            },
+            {
+                type: "demiPlane",
+                min: 0,
+                max: 10
+            }
+        ],
         attributes: {
             name: planarClusterNameGenerator
         }
     },
-    materialPlane: {
-        typeName: "Material Plane"
-    },
     plane : {
         typeName : "Plane",
-        children: {
-            planarLayer: [1, 10],
-            demiPlane: [0, 10]
-        },
+        children: [
+            {
+                type: "planarLayer",
+                min: 1,
+                max: 10
+            },
+            {
+                type: "demiPlane",
+                min: 0,
+                max: 10
+            }
+        ],
         attributes: planarAttributes
     },
     demiPlane : {
@@ -192,6 +213,22 @@ var objectTypes = {
         typeName: "Planar Layer",
         attributes: planarAttributes,
         inheritAttributes: ["alignment","element"]
+    },
+    materialPlane: {
+        typeName: "Material Plane",
+        children: [
+            {
+                type: "planet",
+                min: 1,
+                max: 10 
+            }
+        ],
+        attributes: {
+            name: materialPlaneNameGenerator
+        }
+    },
+    planet : {
+        typeName: "Planet"
     }
 };
 
@@ -202,6 +239,10 @@ var labels = {
 };
 
 /* Data End */
+
+/* Child Validity Checks Begin */
+
+/* Child Validity Checks End */
 
 /* Helpers Begin */
 
@@ -303,6 +344,10 @@ function planarNameGenerator(node) {
     name+= randFromArray(domainOptions);
     //TODO: Maybe add a check to avoid names like "The Clouds of Clouds"
     return name;
+}
+
+function materialPlaneNameGenerator(node) {
+    return "The " + randFromArray(["Prime", "Lost", "Unknown", "Forgotten", "Major", "Minor", "Mortal"]) + " Material Plane";
 }
 
 /* Name Generators End */
