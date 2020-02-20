@@ -1,3 +1,26 @@
-details details {
+details, p {
+    margin: 0;
     padding-left: 16px;
 }
+
+#info-panel {
+    position: absolute;
+    height: 100%;
+    width: 30%;
+    background-color: lightgray;
+    right: 0;
+    bottom: 0;
+    padding-left: 16px;
+}
+
+label, select {
+    margin-bottom: 8px;
+}
+
+/* Put info panel on bottom in portrait orientation */
+@media (orientation: portrait) {
+    #info-panel {
+        width: 100%;
+        height: 30%;
+    }
+  }
