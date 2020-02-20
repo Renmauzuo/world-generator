@@ -34,7 +34,13 @@ function showInfoForNode(node) {
     $('<h2>'+objectTypes[node.type].typeName+'</h2>').appendTo($info);
     if (node.attributes) {
         for (var attribute in node.attributes) {
-            $('<label for="'+attribute+'">'+labels[attribute]+": </label>").appendTo($info);
+            $label = $('<label for="'+attribute+'">'+labels[attribute]+": </label>");
+            //Always make name first
+            if (attribute === "name") {
+                $label.insertAfter('h2');
+            } else {
+                $label.appendTo($info);
+            }
             //If the template attribute is an array create a picklist
             var $input;
             var templateAttribute = objectTypes[node.type].attributes[attribute];
@@ -51,8 +57,8 @@ function showInfoForNode(node) {
             } else if (typeof(node.attributes[attribute]) === "string") {
                 $input = $('<input type="text" id='+attribute+'>').attr('value',node.attributes[attribute]);
             }
-            $input.appendTo($info);
-            $('<br>').appendTo($info);
+            $input.insertAfter($label);
+            $('<br>').insertAfter($input);
 
         }
     }
@@ -60,7 +66,7 @@ function showInfoForNode(node) {
 
 /* Node Generation Begin */
 
-function generateNode(nodeType) {
+function generateNode(nodeType, parent) {
     //Attributes and children will be generated on demand, so we need to remember if they've been generated or not
     var node = {
         type : nodeType,
@@ -70,10 +76,20 @@ function generateNode(nodeType) {
         node.attributes = {};
         var typeAttributes = objectTypes[nodeType].attributes
         for (var attribute in typeAttributes) {
-            if (Array.isArray(typeAttributes[attribute])) {
-                node.attributes[attribute] = randFromArray(typeAttributes[attribute]);
-            } else if (typeof(typeAttributes[attribute]) === 'function') {
-                node.attributes[attribute] = typeAttributes[attribute]();   
+            /* 
+             * If this is an inherit attribute then the value is the same as the parent's value
+             * For example, an evil plane will only have evil layers and demiplanes
+             * This is only enforced at generation, users can enter whatever values they want
+             */
+            if (objectTypes[nodeType].inheritAttributes && objectTypes[nodeType].inheritAttributes.includes(attribute) && parent && parent.attributes[attribute]) {
+                node.attributes[attribute] = parent.attributes[attribute];
+            } else {
+                //If it's not an inherited attribute generate a fresh value
+                if (Array.isArray(typeAttributes[attribute])) {
+                    node.attributes[attribute] = randFromArray(typeAttributes[attribute]);
+                } else if (typeof(typeAttributes[attribute]) === 'function') {
+                    node.attributes[attribute] = typeAttributes[attribute](node);   
+                }
             }
         }
     }
@@ -92,7 +108,7 @@ function onToggle() {
                 var range = objectTypes[node.type].children[childType];
                 var numChildren = rand(range[0],range[1]);
                 for (var i = 0; i<numChildren; i++) {
-                    var childNode = generateNode(childType);
+                    var childNode = generateNode(childType, node);
                     node.children.push(childNode);
                     domObjectForNode(childNode).appendTo($(this));
                 }
@@ -128,7 +144,15 @@ function domObjectForNode(node) {
 /* Data begin */
 
 //Common arrays that will be used by multiple objects
+//TODO: Think about making each item a variable since they'll be referenced and compared a lot
 var alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
+var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
+
+var planarAttributes = {
+    alignment: alignmentList,
+    element: elementList,
+    name: planarNameGenerator
+};
 
 var objectTypes = {
     multiverse : {
@@ -140,7 +164,8 @@ var objectTypes = {
     planarCluster : {
         typeName: "Planar Cluster",
         children: {
-            plane: [4, 20]
+            plane: [4, 10],
+            demiPlane: [0, 10]
         },
         attributes: {
             name: planarClusterNameGenerator
@@ -149,15 +174,20 @@ var objectTypes = {
     plane : {
         typeName : "Plane",
         children: {
-            planarLayer: [1, 10]
+            planarLayer: [1, 10],
+            demiPlane: [0, 10]
         },
-        attributes: {
-            alignment: alignmentList,
-            element: ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"]
-        }
+        attributes: planarAttributes
+    },
+    demiPlane : {
+        typeName: "Demiplane",
+        attributes: planarAttributes,
+        inheritAttributes: ["alignment","element"]
     },
     planarLayer : {
-        typeName: "Planar Layer"
+        typeName: "Planar Layer",
+        attributes: planarAttributes,
+        inheritAttributes: ["alignment","element"]
     }
 };
 
@@ -176,7 +206,7 @@ function rand(min,max) {
 }
 
 function randFromArray(array) {
-    return array[rand(0, array.length-1)];
+    return array[rand(0, array.length)];
 }
 
 /* Helpers End */
@@ -190,8 +220,79 @@ function planarClusterNameGenerator() {
     return name;
 }
 
-function planarNameGenerator() {
+function planarNameGenerator(node) {
+    var alignmentGood = node.attributes.alignment.includes("Good");
+    var alignmentEvil = node.attributes.alignment.includes("Evil");
+    var alignmentLawful = node.attributes.alignment.includes("Lawful");
+    var alignmentChaotic = node.attributes.alignment.includes("Chaotic");
+    //TODO: Add name schemes other than "The X of Y"
+    var name = "The ";
+    
+    //Start with some generic location types
+    var placeOptions = ["Plane", "Realm", "Kingdom"];
 
+    //Add some additional ones based on element
+    if (node.attributes.element === "Water") {
+        placeOptions = placeOptions.concat(["Sea", "Ocean", "Lake", "Islands", "Abyss", "Waters"]);
+    } else if (node.attributes.element === "Air") {
+        placeOptions = placeOptions.concat(["Clouds"]);
+    } else {
+        placeOptions = placeOptions.concat(["Land"]);
+    }
+
+    //Or alignment
+    if (alignmentGood) {
+        placeOptions = placeOptions.concat(["Heaven", "Paradise"]);
+    } else if (alignmentEvil) {
+        placeOptions = placeOptions.concat(["Hell"]);
+    }
+    
+    name+= randFromArray(placeOptions) + ' of ';
+    
+    //Start with some generic options just in case this plane is none/none
+    var domainOptions = ["the Forgotten", "the Unknown"];
+    if (node.attributes.element === "Fire") {
+        domainOptions = domainOptions.concat(["Fire", "Ash", "Lava", "Embers", "Cinders"]);
+    } else if (node.attributes.element === "Earth") {
+        domainOptions = domainOptions.concat(["Earth", "Stone", "Rock"]);
+    } else if (node.attributes.element === "Air") {
+        domainOptions = domainOptions.concat(["Air", "Sky", "Clouds"]);
+    } else if (node.attributes.element === "Water") {
+        domainOptions = domainOptions.concat(["Water", "the Depths"]);
+    } else if (node.attributes.element === "Positive Energy") {
+        domainOptions = domainOptions.concat(["Life", "Growth"]);
+    } else if (node.attributes.element === "Negative Energy") {
+        domainOptions = domainOptions.concat(["Death", "Decay", "Undeath", "the Dead"]);
+    }
+
+    if (alignmentGood) {
+        domainOptions = domainOptions.concat(["Hope", "Courage", "Love", "Angels"]);
+        if (alignmentChaotic) {
+            domainOptions = domainOptions.concat("Eladrin");
+        } else if(alignmentLawful) {
+            domainOptions = domainOptions.concat("Archons");
+        } else {
+            domainOptions = domainOptions.concat("Guardinals");
+        }
+    } else if (alignmentEvil) {
+        domainOptions = domainOptions.concat(["Hate", "War", "Torment"]);
+        if (alignmentChaotic) {
+            domainOptions = domainOptions.concat("Demons");
+        } else if(alignmentLawful) {
+            domainOptions = domainOptions.concat("Devils");
+        } else {
+            domainOptions = domainOptions.concat("Fiends");
+        }
+    }
+
+    if (alignmentLawful) {
+        domainOptions = domainOptions.concat(["Order", "Law"]);
+    } else if (alignmentChaotic) {
+        domainOptions = domainOptions.concat(["Disorder", "Chaos"]);
+    }
+    name+= randFromArray(domainOptions);
+    //TODO: Maybe add a check to avoid names like "The Clouds of Clouds"
+    return name;
 }
 
 /* Name Generators End */
