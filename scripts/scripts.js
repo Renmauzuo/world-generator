@@ -106,11 +106,17 @@ function onToggle() {
             node.children = [];
             for (var index in objectTypes[node.type].children) {
                 var childTemplate = objectTypes[node.type].children[index];
-                var numChildren = rand(childTemplate.min,childTemplate.max);
-                for (var i = 0; i<numChildren; i++) {
-                    var childNode = generateNode(childTemplate.type, node);
-                    node.children.push(childNode);
-                    domObjectForNode(childNode).appendTo($(this));
+                var valid = true;
+                if (childTemplate.requirement) {
+                    valid = eval(childTemplate.requirement);
+                }
+                if (valid) {
+                    var numChildren = rand(childTemplate.min,childTemplate.max);
+                    for (var i = 0; i<numChildren; i++) {
+                        var childNode = generateNode(childTemplate.type, node);
+                        node.children.push(childNode);
+                        domObjectForNode(childNode).appendTo($(this));
+                    }
                 }
             }
         }
@@ -207,7 +213,27 @@ var objectTypes = {
     demiPlane : {
         typeName: "Demiplane",
         attributes: planarAttributes,
-        inheritAttributes: ["alignment","element"]
+        inheritAttributes: ["alignment","element"],
+        children: [
+            {
+                type: "land",
+                min: 1,
+                max: 1,
+                requirement: "node.attributes.element !== 'Water'"
+            },
+            {
+                type: "ocean",
+                min: 1,
+                max: 1,
+                requirement: "node.attributes.element === 'Water'"
+            },
+            {
+                type: "lavaLake",
+                min: 0,
+                max: 1,
+                requirement: "node.attributes.element === 'Fire'"
+            }
+        ]
     },
     planarLayer : {
         typeName: "Planar Layer",
@@ -229,6 +255,15 @@ var objectTypes = {
     },
     planet : {
         typeName: "Planet"
+    },
+    ocean : {
+        typeName: "Ocean"
+    },
+    lavaLake : {
+        typeName: "Lava Lake"
+    },
+    land : {
+        typeName: "Land"
     }
 };
 
