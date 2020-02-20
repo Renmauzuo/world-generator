@@ -164,12 +164,16 @@ var objectTypes = {
     planarCluster : {
         typeName: "Planar Cluster",
         children: {
+            materialPlane: [0, 1],
             plane: [4, 10],
             demiPlane: [0, 10]
         },
         attributes: {
             name: planarClusterNameGenerator
         }
+    },
+    materialPlane: {
+        typeName: "Material Plane"
     },
     plane : {
         typeName : "Plane",
@@ -202,11 +206,11 @@ var labels = {
 /* Helpers Begin */
 
 function rand(min,max) {
-    return Math.floor(Math.random() * (max-min) + min);
+    return Math.floor(Math.random() * (max-min+1) + min);
 }
 
 function randFromArray(array) {
-    return array[rand(0, array.length)];
+    return array[rand(0, array.length-1)];
 }
 
 /* Helpers End */
@@ -229,7 +233,13 @@ function planarNameGenerator(node) {
     var name = "The ";
     
     //Start with some generic location types
-    var placeOptions = ["Plane", "Realm", "Kingdom"];
+    var placeOptions = ["Realm", "Kingdom"];
+
+    if (node.type === "plane") {
+        placeOptions = placeOptions.concat("Plane");
+    } else if (node.type === "demiPlane") {
+        placeOptions = placeOptions.concat("Demiplane");
+    }
 
     //Add some additional ones based on element
     if (node.attributes.element === "Water") {
