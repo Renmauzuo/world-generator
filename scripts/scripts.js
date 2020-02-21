@@ -110,9 +110,6 @@ function generateNode(nodeType, parent) {
         type : nodeType,
         needsChildren : typeTemplate.children != undefined
     };
-    if (typeTemplate.name) {
-        node.name = typeTemplate.name();
-    }
     if (typeTemplate.attributes) {
         node.attributes = {};
         var typeAttributes = typeTemplate.attributes
@@ -122,7 +119,7 @@ function generateNode(nodeType, parent) {
              * For example, an evil plane will only have evil layers and demiplanes
              * This is only enforced at generation, users can enter whatever values they want
              */
-            if (typeTemplate.inheritAttributes && typeTemplate.inheritAttributes.includes(attribute) && parent && parent.attributes[attribute]) {
+            if (typeTemplate.inheritAttributes && typeTemplate.inheritAttributes.includes(attribute) && parent && parent.attributes && parent.attributes[attribute]) {
                 node.attributes[attribute] = parent.attributes[attribute];
             } else {
                 //If it's not an inherited attribute generate a fresh value
@@ -133,6 +130,9 @@ function generateNode(nodeType, parent) {
                 }
             }
         }
+    }
+    if (typeTemplate.name) {
+        node.name = typeTemplate.name(node);
     }
     return node;
 }
