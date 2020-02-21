@@ -2,9 +2,29 @@ body {
     margin: 0;
 }
 
+div.container {
+	display: inline-block;
+	vertical-align: top;
+    padding: 1em;
+    box-sizing: border-box;
+}
+
+
 details, p {
     margin: 0;
     padding-left: 16px;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+#control-panel {
+    width: 20%;
+}
+
+#generation-container {
+    width: 50%  ;
 }
 
 #info-panel {
@@ -14,10 +34,13 @@ details, p {
     background-color: lightgray;
     right: 0;
     bottom: 0;
-    padding-left: 16px;
 }
 
-input, select {
+label {
+    display: inline-block;
+}
+
+input, select, label, button {
     margin-bottom: 8px;
 }
 

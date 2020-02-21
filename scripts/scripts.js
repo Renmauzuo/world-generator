@@ -1,11 +1,23 @@
 var rootNode;
 var selectedNode;
+//Start out true because user doesn't need to be prompted to save an unedited random world
+var saved = true;
+var currentSaveName = '';
+var worldList;
 
 $(function () {
-    //TODO: Allow user to select a type of starting node if they only want to generate a single plane, world, continent, etc.
+
+    //Rather than storing all worlds under one object they are each their own local Storage entry and we save a list of them
+    //This mitigates unnecessary JSON parsing and stringifying by letting us do one world at a time instead of all of them
+    if (!localStorage['worldList']) {
+        localStorage['worldList'] = '[]';
+        worldList = [];
+    } else {
+        worldList = JSON.parse(localStorage['worldList']);
+    }
+
     //Start by creating a multiverse
-    rootNode = generateNode('multiverse');
-    domObjectForNode(rootNode).appendTo('#generation-container');
+    createRootNode('multiverse');
 
     $('body').on('click', 'details,p', function (e) {
         e.stopPropagation();
@@ -24,12 +36,23 @@ $(function () {
                 selectedNode.domElement.html(summaryText);
             }
         }
+        if (saved) {
+            saved = false;
+        }
+    });
+
+    $('#button-generate-new').on('click', function () {
+        confirmSaved();
+        $('#generation-container').empty();
+        createRootNode($('#starting-node')[0].value);
+        $('#info-panel').empty();
+        saved = true;
     });
 });
 
 function showInfoForNode(node) {
     selectedNode = node;
-    $info = $('#info-panel')
+    $info = $('#info-panel');
     $info.empty();
     $('<h2>'+objectTypes[node.type].typeName+'</h2>').appendTo($info);
     if (node.attributes) {
@@ -65,6 +88,11 @@ function showInfoForNode(node) {
 }
 
 /* Node Generation Begin */
+
+function createRootNode(nodeType) {
+    rootNode = generateNode(nodeType);
+    domObjectForNode(rootNode).appendTo('#generation-container');
+}
 
 function generateNode(nodeType, parent) {
     //Attributes and children will be generated on demand, so we need to remember if they've been generated or not
@@ -102,6 +130,7 @@ function onToggle() {
     //If node is being opened see if children are needed
     if ($(this).attr('open')) {
         if(node.needsChildren) {
+            saved = false;
             node.needsChildren = false;
             node.children = [];
             for (var index in objectTypes[node.type].children) {
@@ -125,20 +154,18 @@ function onToggle() {
 
 //Generates an HTML details object for a given node
 function domObjectForNode(node) {
-    //If it has children then create a details group
     var summaryText = objectTypes[node.type].typeName;
     if (node.attributes && node.attributes.name) {
         summaryText+= ' ('+node.attributes.name+')';
     }
+    //If it has children then create a details group
     var $domElement;
     if (objectTypes[node.type].children) {
-        $domElement = $('<details></details>');
-        
-        $('<summary></summary>').html(summaryText).appendTo($domElement);
+        $domElement = $('<details><summary>'+summaryText+'</summary></details>');        
         $domElement.on('toggle', onToggle);
     } else {
         //If it has no children then a simple p tag will do
-        $domElement = $('<p></p>').html(summaryText);
+        $domElement = $('<p>'+summaryText+'</p>');
     }
     $domElement.data('node', node);
     node.domElement = $domElement;
@@ -146,6 +173,65 @@ function domObjectForNode(node) {
 }
 
 /* Node Generation End */
+
+/* Save/Load Begin */
+
+function confirmSaved() {
+    if(!saved) {
+        //If there are unsaved changes ask user if they want to save
+        var shouldSave = confirm('You have unsaved changes. Save this world?');
+        if (shouldSave) {
+            //If this was loaded from a previous save just save over it, if not then prompt user for a new name
+            if (currentSaveName.length) {
+
+            } else {
+                var promptMessage = "Please enter a name for this world.";
+                var saveName;
+                
+                var valid;
+                do {
+                    saveName = prompt(promptMessage);
+                    if (saveName.length == 0) {
+                        promptMessage = "Name must not be empty. Please enter a name.";
+                        valid = false;
+                    } else if (worldList.includes(saveName)) {
+                        promptMessage = "Please enter a unique name";
+                        valid = confirm('This name already exists. Save over it?'); 
+                    } else {
+                        valid = true;
+                    }
+                } while (!valid)
+
+                if (!worldList.includes(saveName)) {
+                    worldList.push(saveName);
+                }
+                localStorage['worldList'] = JSON.stringify(worldList);
+                localStorage['world-'+saveName] = stringifyNodes(rootNode);
+            }
+        }
+    }
+}
+
+//Converts a node and all its children into a string for save/export
+//Since they reference their DOM objects the native JSON stringify can't be used without cloning and pruning the node tree first
+function stringifyNodes(rootNode) {
+    var rootCopy = {};
+    Object.assign(rootCopy, rootNode);
+    recursivePruneChildren(rootCopy);
+    return JSON.stringify(rootCopy);
+}
+
+function recursivePruneChildren(rootNode) {
+    delete rootNode.domElement;
+    if (rootNode.children) {
+        for (var index in rootNode.children) {
+            recursivePruneChildren(rootNode.children[index]);
+        }
+    }
+}
+
+
+/* Save/Load End */
 
 /* Data begin */
 
@@ -378,6 +464,7 @@ function planarNameGenerator(node) {
     }
     name+= randFromArray(domainOptions);
     //TODO: Maybe add a check to avoid names like "The Clouds of Clouds"
+    //On the other hand, those could be funny. "Tainted Elven Gloves of Tainting" were a popular CoN drop.
     return name;
 }
 
