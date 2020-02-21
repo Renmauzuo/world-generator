@@ -15,6 +15,7 @@ $(function () {
     } else {
         worldList = JSON.parse(localStorage['worldList']);
     }
+    updateLoadList();
 
     //Start by creating a multiverse
     createRootNode('multiverse');
@@ -26,7 +27,6 @@ $(function () {
 
     $('#info-panel').on('input', 'input,select', function () {
         var attribute = $(this).attr('id');
-        selectedNode.attributes[attribute] = $(this)[0].value;
         //If its name changed then update the associated DOM element
         if (attribute === 'name') {
             var summaryText = objectTypes[selectedNode.type].typeName+' ('+$(this)[0].value+')';
@@ -35,6 +35,9 @@ $(function () {
             } else {
                 selectedNode.domElement.html(summaryText);
             }
+            selectedNode.name = $(this)[0].value;
+        } else {
+            selectedNode.attributes[attribute] = $(this)[0].value;
         }
         if (saved) {
             saved = false;
@@ -48,6 +51,11 @@ $(function () {
         $('#info-panel').empty();
         saved = true;
     });
+
+    $('#load-saved').on('input', function () {
+        confirmSaved();
+        createWorldFromJSON(localStorage['world-'+$(this)[0].value]);
+    });
 });
 
 function showInfoForNode(node) {
@@ -55,15 +63,16 @@ function showInfoForNode(node) {
     $info = $('#info-panel');
     $info.empty();
     $('<h2>'+objectTypes[node.type].typeName+'</h2>').appendTo($info);
+    $('<label for="name">Name: </label>').appendTo($info);
+    $inputName = $('<input type="text" id="name">');
+    if(node.name) {
+        $inputName.attr('value', node.name);
+    }
+    $inputName.appendTo($info);
     if (node.attributes) {
         for (var attribute in node.attributes) {
             $label = $('<label for="'+attribute+'">'+labels[attribute]+": </label>");
-            //Always make name first
-            if (attribute === "name") {
-                $label.insertAfter('h2');
-            } else {
-                $label.appendTo($info);
-            }
+            $label.appendTo($info);
             //If the template attribute is an array create a picklist
             var $input;
             var templateAttribute = objectTypes[node.type].attributes[attribute];
@@ -95,21 +104,25 @@ function createRootNode(nodeType) {
 }
 
 function generateNode(nodeType, parent) {
-    //Attributes and children will be generated on demand, so we need to remember if they've been generated or not
+    //Children will be generated on demand, so we need to remember if they've been generated or not
+    var typeTemplate = objectTypes[nodeType];
     var node = {
         type : nodeType,
-        needsChildren : objectTypes[nodeType].children != undefined
+        needsChildren : typeTemplate.children != undefined
     };
-    if (objectTypes[nodeType].attributes) {
+    if (typeTemplate.name) {
+        node.name = typeTemplate.name();
+    }
+    if (typeTemplate.attributes) {
         node.attributes = {};
-        var typeAttributes = objectTypes[nodeType].attributes
+        var typeAttributes = typeTemplate.attributes
         for (var attribute in typeAttributes) {
             /* 
              * If this is an inherit attribute then the value is the same as the parent's value
              * For example, an evil plane will only have evil layers and demiplanes
              * This is only enforced at generation, users can enter whatever values they want
              */
-            if (objectTypes[nodeType].inheritAttributes && objectTypes[nodeType].inheritAttributes.includes(attribute) && parent && parent.attributes[attribute]) {
+            if (typeTemplate.inheritAttributes && typeTemplate.inheritAttributes.includes(attribute) && parent && parent.attributes[attribute]) {
                 node.attributes[attribute] = parent.attributes[attribute];
             } else {
                 //If it's not an inherited attribute generate a fresh value
@@ -155,8 +168,8 @@ function onToggle() {
 //Generates an HTML details object for a given node
 function domObjectForNode(node) {
     var summaryText = objectTypes[node.type].typeName;
-    if (node.attributes && node.attributes.name) {
-        summaryText+= ' ('+node.attributes.name+')';
+    if (node.name && node.name.length) {
+        summaryText+= ' ('+node.name+')';
     }
     //If it has children then create a details group
     var $domElement;
@@ -202,10 +215,7 @@ function confirmSaved() {
                     }
                 } while (!valid)
 
-                if (!worldList.includes(saveName)) {
-                    worldList.push(saveName);
-                }
-                localStorage['worldList'] = JSON.stringify(worldList);
+                addWorldToList(saveName);
                 localStorage['world-'+saveName] = stringifyNodes(rootNode);
             }
         }
@@ -230,6 +240,46 @@ function recursivePruneChildren(rootNode) {
     }
 }
 
+function addWorldToList(worldName) {
+    if (!worldList.includes(worldName)) {
+        worldList.push(worldName);
+    }
+    localStorage['worldList'] = JSON.stringify(worldList);
+    updateLoadList();
+}
+
+//Updates the select for choosing a saved world
+function updateLoadList () {
+    if (worldList.length) {
+        $('#load-saved').empty();
+        $('<option>Select World</option>').appendTo('#load-saved');
+        for (var i = 0; i < worldList.length; i++) {
+            $('<option value="'+worldList[i]+'">'+worldList[i]+'</option>').appendTo('#load-saved');
+        }
+        $('#load-saved, #load-label').show();
+
+    } else {
+        $('#load-saved, #load-label').hide();
+    }
+}
+
+//Parses JSON string, but also creates associated DOM objects and populates the generation container
+//Called when loading or importing
+function createWorldFromJSON(worldJSON) {
+    $('#generation-container, #info-panel').empty();
+    rootNode = JSON.parse(worldJSON);
+    $('#generation-container').append(recursiveGenerateDOMElement(rootNode));
+}
+
+function recursiveGenerateDOMElement(parentNode) {
+    var $domElement = domObjectForNode(parentNode);
+    if (parentNode.children) {
+        for (var index in parentNode.children) {
+            $domElement.append(recursiveGenerateDOMElement(parentNode.children[index]))
+        }
+    } 
+    return $domElement;
+}
 
 /* Save/Load End */
 
@@ -242,8 +292,7 @@ var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "
 
 var planarAttributes = {
     alignment: alignmentList,
-    element: elementList,
-    name: planarNameGenerator
+    element: elementList
 };
 
 var objectTypes = {
@@ -259,6 +308,7 @@ var objectTypes = {
     },
     planarCluster : {
         typeName: "Planar Cluster",
+        name: planarClusterNameGenerator,
         children: [
             {
                 type: "materialPlane",
@@ -275,13 +325,11 @@ var objectTypes = {
                 min: 0,
                 max: 10
             }
-        ],
-        attributes: {
-            name: planarClusterNameGenerator
-        }
+        ]
     },
     plane : {
         typeName : "Plane",
+        name: planarNameGenerator,
         children: [
             {
                 type: "planarLayer",
@@ -298,6 +346,7 @@ var objectTypes = {
     },
     demiPlane : {
         typeName: "Demiplane",
+        name: planarNameGenerator,
         attributes: planarAttributes,
         inheritAttributes: ["alignment","element"],
         children: [
@@ -328,16 +377,14 @@ var objectTypes = {
     },
     materialPlane: {
         typeName: "Material Plane",
+        name: materialPlaneNameGenerator,
         children: [
             {
                 type: "planet",
                 min: 1,
                 max: 10 
             }
-        ],
-        attributes: {
-            name: materialPlaneNameGenerator
-        }
+        ]
     },
     planet : {
         typeName: "Planet"
