@@ -17,13 +17,21 @@
 		<label for="load-saved" id="load-label">Load saved:</label><br>
 		<select id="load-saved">
 		</select>
-		<button id="button-import">Import</button><br>
-		<button id="button-export">Export</button><br>
+		<button id="button-import-root">Import</button><br>
+		<button id="button-export-root">Export</button><br>
 	</div>
     <div id="generation-container" class="container">
 
 	</div>
-	<div id="info-panel" class="container panel"></div>
+	<div id="info-panel" class="container panel">
+		<h2></h2>
+		<label for="name">Name:</label>
+		<input type="text" id="name">
+
+		<div id="fields"></div>
+		<button id="button-import-selected">Import Child</button><br>
+		<button id="button-export-selected">Export</button><br>
+	</div>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 	<script src="scripts/scripts.js"></script>
 </body>

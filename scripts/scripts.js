@@ -57,7 +57,7 @@ $(function () {
         createWorldFromJSON(localStorage['world-'+$(this)[0].value]);
     });
 
-    $('#button-import').on('click', function () {
+    $('#button-import-root').on('click', function () {
         confirmSaved();
         var data = prompt("Please input the JSON for the objects to import:");
 		if (data && data != "") {
@@ -65,24 +65,41 @@ $(function () {
         }
     });
 
-    $('#button-export').on('click', function () {
+    $('#button-export-root').on('click', function () {
         navigator.clipboard.writeText(stringifyNodes(rootNode)).then(function () {
             alert("Exported to clipboard!");
         });
     });
+
+    $('#button-import-selected').on('click', function () {
+        var data = prompt("Please input the JSON for the child to import:");
+		if (data && data != "") {
+            //createWorldFromJSON(data);
+            var newChild = JSON.parse(data);
+            //This might happen if the user pastes a child onto a type that normally doesn't have children
+            if(!selectedNode.children) {
+                selectedNode.children = [];
+            }
+            selectedNode.children.push(newChild);
+            selectedNode.domElement.append(recursiveGenerateDOMElement(newChild));
+        }
+    });
+
+    $('#button-export-selected').on('click', function () {
+        navigator.clipboard.writeText(stringifyNodes(selectedNode)).then(function () {
+            alert("Exported to clipboard!");
+        });
+    });
+
+    showInfoForNode(rootNode);
 });
 
 function showInfoForNode(node) {
     selectedNode = node;
-    $info = $('#info-panel');
+    $('#info-panel h2').html(objectTypes[node.type].typeName)
+    $info = $('#info-panel #fields');
     $info.empty();
-    $('<h2>'+objectTypes[node.type].typeName+'</h2>').appendTo($info);
-    $('<label for="name">Name: </label>').appendTo($info);
-    $inputName = $('<input type="text" id="name">');
-    if(node.name) {
-        $inputName.attr('value', node.name);
-    }
-    $inputName.appendTo($info);
+    $('#name').attr('value', node.name || '');
     if (node.attributes) {
         for (var attribute in node.attributes) {
             $label = $('<label for="'+attribute+'">'+labels[attribute]+": </label>");
@@ -280,9 +297,10 @@ function updateLoadList () {
 //Parses JSON string, but also creates associated DOM objects and populates the generation container
 //Called when loading or importing
 function createWorldFromJSON(worldJSON) {
-    $('#generation-container, #info-panel').empty();
+    $('#generation-container').empty();
     rootNode = JSON.parse(worldJSON);
     $('#generation-container').append(recursiveGenerateDOMElement(rootNode));
+    showInfoForNode(rootNode);
 }
 
 function recursiveGenerateDOMElement(parentNode) {
