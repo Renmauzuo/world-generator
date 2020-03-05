@@ -18,7 +18,8 @@ $(function () {
     updateLoadList();
 
     //Start by creating a multiverse
-    createRootNode('multiverse');
+    //createRootNode('multiverse');
+    createRootNode('planet');
 
     $('body').on('click', 'details,p', function (e) {
         e.stopPropagation();
@@ -184,7 +185,12 @@ function onToggle() {
                     valid = eval(childTemplate.requirement);
                 }
                 if (valid) {
-                    var numChildren = rand(childTemplate.min,childTemplate.max);
+                    var numChildren;
+                    if (childTemplate.weightedRange) {
+                        numChildren = weightedRand(childTemplate.weightedRange)
+                    } else {
+                        numChildren = rand(childTemplate.min,childTemplate.max);
+                    }
                     for (var i = 0; i<numChildren; i++) {
                         var childNode = generateNode(childTemplate.type, node);
                         node.children.push(childNode);
@@ -419,13 +425,28 @@ var objectTypes = {
         ]
     },
     planet : {
-        typeName: "Planet"
+        typeName: "Planet",
+        children: [
+            {
+                type: "ocean",
+                min: 1,
+                max: 4
+            },
+            //1-7 continents but weighted toward the middle
+            {
+                type: "continent",
+                weightedRange: {1:1,2:2,3:3,4:3,5:2,6:1,7:1}
+            }
+        ]
     },
     ocean : {
         typeName: "Ocean"
     },
     lavaLake : {
         typeName: "Lava Lake"
+    },
+    continent: {
+        typeName: "Continent"
     },
     land : {
         typeName: "Land"
@@ -453,6 +474,18 @@ function rand(min,max) {
 function randFromArray(array) {
     return array[rand(0, array.length-1)];
 }
+
+function weightedRand(weights) {
+    var weightTotal = 0;
+    var i, sum=0, r=Math.random();
+    for (i in weights) {
+        weightTotal+=weights[i];
+    }
+    for (i in weights) {
+      sum += weights[i]/weightTotal;
+      if (r <= sum) return i;
+    }
+  }
 
 /* Helpers End */
 
