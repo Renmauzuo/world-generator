@@ -192,14 +192,21 @@ function onToggle() {
                         numChildren = rand(childTemplate.min,childTemplate.max);
                     }
                     for (var i = 0; i<numChildren; i++) {
-                        var childNode = generateNode(childTemplate.type, node);
-                        node.children.push(childNode);
-                        domObjectForNode(childNode).appendTo($(this));
+                        addChildToNode(childTemplate.type,node);
+                        if(childTemplate.requiredSibling) {
+                            addChildToNode(childTemplate.requiredSibling, node);
+                        }
                     }
                 }
             }
         }
     }
+}
+
+function addChildToNode(childType, node) {
+    var childNode = generateNode(childType, node);
+    node.children.push(childNode);
+    domObjectForNode(childNode).appendTo(node.domElement);
 }
 
 //Generates an HTML details object for a given node
@@ -325,6 +332,7 @@ function recursiveGenerateDOMElement(parentNode) {
 
 //Common arrays that will be used by multiple objects
 //TODO: Think about making each item a variable since they'll be referenced and compared a lot
+var temperatureList = ["Cold", "Temperate", "Warm"];
 var alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
 var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
 
@@ -408,7 +416,7 @@ var objectTypes = {
             }
         ]
     },
-    planarLayer : {
+    planarLayer: {
         typeName: "Planar Layer",
         attributes: planarAttributes,
         inheritAttributes: ["alignment","element"]
@@ -424,7 +432,7 @@ var objectTypes = {
             }
         ]
     },
-    planet : {
+    planet: {
         typeName: "Planet",
         children: [
             {
@@ -440,13 +448,75 @@ var objectTypes = {
         ]
     },
     ocean : {
-        typeName: "Ocean"
+        typeName: "Ocean",
+        children: [
+            {
+                type: 'archipelago',
+                min: 0,
+                max: 3
+            },
+            {
+                type: 'island',
+                min: 0,
+                max: 5
+            }
+        ],
+        attributes: {
+            temperature: temperatureList
+        }
+    },
+    archipelago: {
+        typeName: "Archipelago",
+        children: [
+            {
+                type: "island",
+                min: 5,
+                max: 20
+            }
+        ],
+        attributes: {
+            temperature: temperatureList
+        },
+        inheritAttributes: ["temperature"]
+    },
+    island: {
+        typeName: 'Island',
+        children: [
+            {
+                type: 'reef',
+                min: 0,
+                max: 1,
+                requirement: "node.attributes.temperature === 'Warm'",
+                requiredSibling: 'lagoon'
+            },
+            {
+                type: 'beach',
+                min: 1,
+                max: 2
+            }
+        ],
+        attributes: {
+            temperature: temperatureList
+        },
+        inheritAttributes: ["temperature"]
+    },
+    reef: {
+        typeName: 'Reef'
+    },
+    lagoon: {
+        typeName: 'Lagoon'
+    },
+    beach: {
+        typeName: 'Beach'
     },
     lavaLake : {
         typeName: "Lava Lake"
     },
     continent: {
-        typeName: "Continent"
+        typeName: "Continent",
+        attributes: {
+            temperature: temperatureList
+        }
     },
     land : {
         typeName: "Land"
@@ -456,7 +526,7 @@ var objectTypes = {
 var labels = {
     alignment: "Alignment",
     element: "Element",
-    name: "Name"
+    temperature: "Temperature"    
 };
 
 /* Data End */
