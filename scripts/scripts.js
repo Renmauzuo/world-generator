@@ -163,8 +163,8 @@ function generateNode(nodeType, parent) {
             }
         }
     }
-    if (typeTemplate.name) {
-        node.name = typeTemplate.name(node);
+    if (typeTemplate.nameGenerator) {
+        node.name = typeTemplate.nameGenerator(node,parent);
     }
     return node;
 }
@@ -197,6 +197,8 @@ function onToggle() {
                             addChildToNode(childTemplate.requiredSibling, node);
                         }
                     }
+                    //Reset queued name so it doesn't impact cousins or more distant nodes
+                    queuedName = null;
                 }
             }
         }
@@ -354,7 +356,7 @@ var objectTypes = {
     },
     planarCluster : {
         typeName: "Planar Cluster",
-        name: planarClusterNameGenerator,
+        nameGenerator: planarClusterNameGenerator,
         children: [
             {
                 type: "materialPlane",
@@ -375,7 +377,7 @@ var objectTypes = {
     },
     plane : {
         typeName : "Plane",
-        name: planarNameGenerator,
+        nameGenerator: planarNameGenerator,
         children: [
             {
                 type: "planarLayer",
@@ -392,7 +394,7 @@ var objectTypes = {
     },
     demiPlane : {
         typeName: "Demiplane",
-        name: planarNameGenerator,
+        nameGenerator: planarNameGenerator,
         attributes: planarAttributes,
         inheritAttributes: ["alignment","element"],
         children: [
@@ -423,7 +425,7 @@ var objectTypes = {
     },
     materialPlane: {
         typeName: "Material Plane",
-        name: materialPlaneNameGenerator,
+        nameGenerator: materialPlaneNameGenerator,
         children: [
             {
                 type: "planet",
@@ -514,6 +516,7 @@ var objectTypes = {
     },
     continent: {
         typeName: "Continent",
+        nameGenerator: continentNameGenerator,
         attributes: {
             temperature: temperatureList
         }
@@ -560,6 +563,9 @@ function weightedRand(weights) {
 /* Helpers End */
 
 /* Name Generators Begin */
+
+//Sometimes an element's name will impact a sibling. This stores queued names.
+var queuedName;
 
 function planarClusterNameGenerator() {
     var name = "The ";
@@ -652,6 +658,35 @@ function planarNameGenerator(node) {
 
 function materialPlaneNameGenerator(node) {
     return "The " + randFromArray(["Prime", "Lost", "Unknown", "Forgotten", "Major", "Minor", "Mortal"]) + " Material Plane";
+}
+
+
+function continentNameGenerator(node, parent) {
+    var name;
+    if (queuedName) {
+        name = queuedName;
+        queuedName = null;
+        return name;
+    }
+
+    name = randFromArray(['Am', 'Eur', 'In', 'Af', 'Aus', 'An', 'Od', 'Fay', 'Kun', 'Al', 'Vel', 'Kal', 'Tor', 'Pan', 'Ess']);
+
+    var midSyllableCount = rand(0,2);
+
+    var midSyllables= ['er', 'ic', 'ric', 'ral', 'ar', 'on', 'io', 'im', 'ton', 'd'];
+    for (var i = 0; i < midSyllableCount; i++) {
+        name+=randFromArray(midSyllables);
+    }
+
+    name+= randFromArray(['ca', 'ope', 'ia']);
+
+    if (rand(1,5) === 1) {
+        var northSouth = rand(0,1) === 1;
+        queuedName = (northSouth ? 'South' : 'East') + ' ' + name;
+        name = (northSouth ? 'North' : 'West') + ' ' + name;
+    }
+
+    return name;
 }
 
 /* Name Generators End */
