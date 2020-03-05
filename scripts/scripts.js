@@ -56,6 +56,20 @@ $(function () {
         confirmSaved();
         createWorldFromJSON(localStorage['world-'+$(this)[0].value]);
     });
+
+    $('#button-import').on('click', function () {
+        confirmSaved();
+        var data = prompt("Please input the JSON for the objects to import:");
+		if (data && data != "") {
+            createWorldFromJSON(data);
+        }
+    });
+
+    $('#button-export').on('click', function () {
+        navigator.clipboard.writeText(stringifyNodes(rootNode)).then(function () {
+            alert("Exported to clipboard!");
+        });
+    });
 });
 
 function showInfoForNode(node) {

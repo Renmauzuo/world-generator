@@ -6,9 +6,9 @@
 	<link rel="stylesheet" type="text/css" href="styles/styles.css">
 </head>
 <body>
-	<div id="control-panel" class="container">
+	<div id="control-panel" class="container panel">
 		<button id="button-generate-new">Generate New World</button><br>
-		<label for="starting-node">Starting with:</label><br>
+		<label for="starting-node">Starting with:</label>
 		<select id="starting-node">
 		  <option value="multiverse">Multiverse</option>
 		  <option value="plane">Plane</option>
@@ -17,11 +17,13 @@
 		<label for="load-saved" id="load-label">Load saved:</label><br>
 		<select id="load-saved">
 		</select>
+		<button id="button-import">Import</button><br>
+		<button id="button-export">Export</button><br>
 	</div>
     <div id="generation-container" class="container">
 
 	</div>
-	<div id="info-panel" class="container"></div>
+	<div id="info-panel" class="container panel"></div>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 	<script src="scripts/scripts.js"></script>
 </body>
