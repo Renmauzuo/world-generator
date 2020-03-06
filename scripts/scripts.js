@@ -103,7 +103,7 @@ function showInfoForNode(node) {
     $('#name').attr('value', node.name || '');
     if (node.attributes) {
         for (var attribute in node.attributes) {
-            $label = $('<label for="'+attribute+'">'+labels[attribute]+": </label>");
+            $label = $('<label for="'+attribute+'">'+(labels[attribute]||capitalize(attribute))+": </label>");
             $label.appendTo($info);
             //If the template attribute is an array create a picklist
             var $input;
@@ -192,7 +192,14 @@ function onToggle() {
                         numChildren = rand(childTemplate.min,childTemplate.max);
                     }
                     for (var i = 0; i<numChildren; i++) {
-                        addChildToNode(childTemplate.type,node);
+                        var childType;
+                        if (typeof(childTemplate.type) === "object") {
+                            //If it's an object treat it as a weighted array
+                            childType = weightedRand(childTemplate.type);
+                        } else {
+                            childType = childTemplate.type;    
+                        }
+                        addChildToNode(childType,node);
                         if(childTemplate.requiredSibling) {
                             addChildToNode(childTemplate.requiredSibling, node);
                         }
@@ -417,12 +424,14 @@ var objectTypes = {
                 max: 1,
                 requirement: "node.attributes.element === 'Fire'"
             }
+            //TODO: More demiplane geography
         ]
     },
     planarLayer: {
         typeName: "Planar Layer",
         attributes: planarAttributes,
         inheritAttributes: ["alignment","element"]
+        //TODO: Planar layer geography
     },
     materialPlane: {
         typeName: "Material Plane",
@@ -433,6 +442,7 @@ var objectTypes = {
                 min: 1,
                 max: 10 
             }
+            //TODO: Moons, maybe? Or other celestial bodies
         ]
     },
     planet: {
@@ -513,6 +523,7 @@ var objectTypes = {
                 min: 1,
                 max: 2
             }
+            //TODO: Island villages
         ],
         attributes: {
             temperature: temperatureListNoMixed
@@ -521,21 +532,27 @@ var objectTypes = {
     },
     reef: {
         typeName: 'Reef'
+        //TODO: Reef children
     },
     lagoon: {
         typeName: 'Lagoon'
+        //TODO: Lagoon children
     },
     openOcean: {
         typeName: 'Open Ocean'
+        //TODO: Open ocean children
     },
     abyssalTrench: {
         typeName: 'Abyssal Trench'
+        //TODO: Abyssal Trench children
     },
     beach: {
         typeName: 'Beach'
+        //TODO: Beach children
     },
     lavaLake : {
         typeName: "Lava Lake"
+        //TODO: Lava lake children
     },
     continent: {
         typeName: "Continent",
@@ -583,25 +600,78 @@ var objectTypes = {
                 min: 0,
                 max: 3
             }
+            //TODO: More geography, hills, plains, etc
         ]
     },
     sea: {
         typeName: 'Sea'
+        //TODO: Sea children
     },
     tundra: {
         typeName: 'Tundra'
+        //TODO Tundra children
     },
     tropicalForest: {
         typeName: "Tropical Forest"
+        //TODO: Forest children
     },
     deciduousForest: {
         typeName: "Deciduous Forest"
+        //TODO: Forest children
     },  
     coniferousForest: {
         typeName: 'Coniferous Forest'
+        //TODO: Forest children
     },
     coast: {
-        typeName: "Coast"
+        typeName: "Coast",
+        children: [
+            {
+                type: 'beach',
+                min: 1,
+                max: 3    
+            },
+            {
+                type: 'coastalCliff',
+                min: 0,
+                max: 3
+            },
+            {
+                type: {coastalMetropolis: 1, coastalCityLarge: 4, coastalCitySmall: 10, coastalTownLarge: 15, coastalTownSmall: 20, coastalVillage: 20, coastalHamlet: 20, coastalThorp: 10},
+                min: 0,
+                max: 2
+            }
+            //TODO: Coastal cities
+        ]
+    },
+    coastalCliff: {
+        typeName: "Coastal Cliff"
+        //TODO; Cliff children
+    },
+    //TODO: Coastal settlement children
+    coastalMetropolis: {
+        typeName: "Coastal Metropolis"
+    },
+    coastalCityLarge: {
+        typeName: "Large Coastal City"
+    },
+    coastalCitySmall: {
+        typeName: "Small Coastal City"
+    },
+    coastalTownLarge: {
+        typeName: "Large Coastal Town"
+    },
+    coastalTownSmall: {
+        typeName: "Small Coastal Town"
+    },
+    coastalVillage: {
+        typeName: "Coastal Village"
+    },
+    coastalHamlet: {
+        typeName: "Coastal Hamlet"
+    },
+    coastalThorp: {
+        typeName: "Coastal Thorp"
     },
     mountainRange: {
         typeName: "Mountain Range",
@@ -615,16 +685,17 @@ var objectTypes = {
     },
     mountain: {
         typeName: 'Mountain'
+        //TODO: Mountain children
     },
     land : {
+        //TODO: Remove when no longer needed. This was just a generic placeholder for testing
         typeName: "Land"
     }
 };
 
 var labels = {
     alignment: "Alignment",
-    element: "Element",
-    temperature: "Temperature"    
+    element: "Element"
 };
 
 /* Data End */
@@ -668,6 +739,10 @@ function shouldInheritAttribute(parent, template, attribute) {
     }
 
     return true;
+}
+
+function capitalize(string) {
+    return string.substring(0,1).toUpperCase() + string.substring(1);
 }
 
 /* Helpers End */
