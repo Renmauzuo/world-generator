@@ -351,6 +351,10 @@ var planarAttributes = {
     element: elementList
 };
 
+var settlementAttributes = {
+    racialDemographics: ["Isolated","Mixed","Integrated"]
+};
+
 var objectTypes = {
     multiverse : {
         typeName : "Multiverse",
@@ -650,28 +654,36 @@ var objectTypes = {
     },
     //TODO: Coastal settlement children
     coastalMetropolis: {
-        typeName: "Coastal Metropolis"
+        typeName: "Coastal Metropolis",
+        attributes: settlementAttributes
     },
     coastalCityLarge: {
-        typeName: "Large Coastal City"
+        typeName: "Large Coastal City",
+        attributes: settlementAttributes
     },
     coastalCitySmall: {
-        typeName: "Small Coastal City"
+        typeName: "Small Coastal City",
+        attributes: settlementAttributes
     },
     coastalTownLarge: {
-        typeName: "Large Coastal Town"
+        typeName: "Large Coastal Town",
+        attributes: settlementAttributes
     },
     coastalTownSmall: {
-        typeName: "Small Coastal Town"
+        typeName: "Small Coastal Town",
+        attributes: settlementAttributes
     },
     coastalVillage: {
-        typeName: "Coastal Village"
+        typeName: "Coastal Village",
+        attributes: settlementAttributes
     },
     coastalHamlet: {
-        typeName: "Coastal Hamlet"
+        typeName: "Coastal Hamlet",
+        attributes: settlementAttributes
     },
     coastalThorp: {
-        typeName: "Coastal Thorp"
+        typeName: "Coastal Thorp",
+        attributes: settlementAttributes
     },
     mountainRange: {
         typeName: "Mountain Range",
@@ -695,7 +707,8 @@ var objectTypes = {
 
 var labels = {
     alignment: "Alignment",
-    element: "Element"
+    element: "Element",
+    racialDemographics: "Racial Demographics"
 };
 
 /* Data End */
