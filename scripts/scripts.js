@@ -151,7 +151,7 @@ function generateNode(nodeType, parent) {
              * For example, an evil plane will only have evil layers and demiplanes
              * This is only enforced at generation, users can enter whatever values they want
              */
-            if (typeTemplate.inheritAttributes && typeTemplate.inheritAttributes.includes(attribute) && parent && parent.attributes && parent.attributes[attribute]) {
+            if (shouldInheritAttribute(parent, typeTemplate, attribute)) {
                 node.attributes[attribute] = parent.attributes[attribute];
             } else {
                 //If it's not an inherited attribute generate a fresh value
@@ -334,7 +334,8 @@ function recursiveGenerateDOMElement(parentNode) {
 
 //Common arrays that will be used by multiple objects
 //TODO: Think about making each item a variable since they'll be referenced and compared a lot
-var temperatureList = ["Cold", "Temperate", "Warm"];
+var temperatureList = ["Mixed", "Cold", "Temperate", "Warm"];
+var temperatureListNoMixed = ["Cold", "Temperate", "Warm"];
 var alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
 var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
 
@@ -461,6 +462,22 @@ var objectTypes = {
                 type: 'island',
                 min: 0,
                 max: 5
+            },
+            {
+                type: 'openOcean',
+                min: 1,
+                max: 3
+            },
+            {
+                type: 'abyssalTrench',
+                min: 0,
+                max: 3
+            },
+            {
+                type: 'reef',
+                min: 0,
+                max: 5,
+                requirement: "node.attributes.temperature === 'Warm'",
             }
         ],
         attributes: {
@@ -498,7 +515,7 @@ var objectTypes = {
             }
         ],
         attributes: {
-            temperature: temperatureList
+            temperature: temperatureListNoMixed
         },
         inheritAttributes: ["temperature"]
     },
@@ -507,6 +524,12 @@ var objectTypes = {
     },
     lagoon: {
         typeName: 'Lagoon'
+    },
+    openOcean: {
+        typeName: 'Open Ocean'
+    },
+    abyssalTrench: {
+        typeName: 'Abyssal Trench'
     },
     beach: {
         typeName: 'Beach'
@@ -519,7 +542,79 @@ var objectTypes = {
         nameGenerator: continentNameGenerator,
         attributes: {
             temperature: temperatureList
-        }
+        },
+        children: [
+            {
+                type: 'sea',
+                min: 0,
+                max: 2
+            },
+            {
+                type: 'tropicalForest',
+                min: 0,
+                max: 5,
+                requirement: "node.attributes.temperature === 'Warm' || node.attributes.temperature === 'Mixed'"
+            },
+            {
+                type: 'deciduousForest',
+                min: 0,
+                max: 5,
+                requirement: "node.attributes.temperature === 'Temperate' || node.attributes.temperature === 'Mixed'"
+            },
+            {
+                type: 'coniferousForest',
+                min: 0,
+                max: 5,
+                requirement: "node.attributes.temperature !== 'Warm'"
+            },
+            {
+                type: 'tundra',
+                min: 0,
+                max: 5,
+                requirement: "node.attributes.temperature === 'Cold' || node.attributes.temperature === 'Mixed'"
+            },
+            {
+                type: 'coast',
+                min: 1,
+                max: 3
+            },
+            {
+                type: 'mountainRange',
+                min: 0,
+                max: 3
+            }
+        ]
+    },
+    sea: {
+        typeName: 'Sea'
+    },
+    tundra: {
+        typeName: 'Tundra'
+    },
+    tropicalForest: {
+        typeName: "Tropical Forest"
+    },
+    deciduousForest: {
+        typeName: "Deciduous Forest"
+    },  
+    coniferousForest: {
+        typeName: 'Coniferous Forest'
+    },
+    coast: {
+        typeName: "Coast"
+    },
+    mountainRange: {
+        typeName: "Mountain Range",
+        children: [
+            {
+                type: 'mountain',
+                min: 5,
+                max: 20
+            }
+        ]
+    },
+    mountain: {
+        typeName: 'Mountain'
     },
     land : {
         typeName: "Land"
@@ -533,10 +628,6 @@ var labels = {
 };
 
 /* Data End */
-
-/* Child Validity Checks Begin */
-
-/* Child Validity Checks End */
 
 /* Helpers Begin */
 
@@ -558,7 +649,26 @@ function weightedRand(weights) {
       sum += weights[i]/weightTotal;
       if (r <= sum) return i;
     }
-  }
+}
+
+function shouldInheritAttribute(parent, template, attribute) {
+    //Check if this is an inherited attribute for this type
+    if (!template.inheritAttributes || !template.inheritAttributes.includes(attribute)) {
+        return false;
+    }
+
+    //Make sure there is a parent with this attribute
+    if (!parent || !parent.attributes || !parent.attributes[attribute]) {
+        return false;
+    }
+
+    //If parent has a "mixed" value let child choose for itself
+    if (parent.attributes[attribute] == "Mixed") {
+        return false;
+    }
+
+    return true;
+}
 
 /* Helpers End */
 
