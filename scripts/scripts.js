@@ -107,7 +107,7 @@ function showInfoForNode(node) {
             $label.appendTo($info);
             //If the template attribute is an array create a picklist
             var $input;
-            var templateAttribute = objectTypes[node.type].attributes[attribute];
+            var templateAttribute = attributeEditors[attribute] || objectTypes[node.type].attributes[attribute];
             if (Array.isArray(templateAttribute)) {
                 $input = $('<select id='+attribute+'></select>');
                 for (var index in templateAttribute) {
@@ -142,6 +142,9 @@ function generateNode(nodeType, parent) {
         type : nodeType,
         needsChildren : typeTemplate.children != undefined
     };
+    if(parent) {
+        node.parent = parent;
+    }
     if (typeTemplate.attributes) {
         node.attributes = {};
         var typeAttributes = typeTemplate.attributes
@@ -164,7 +167,7 @@ function generateNode(nodeType, parent) {
         }
     }
     if (typeTemplate.nameGenerator) {
-        node.name = typeTemplate.nameGenerator(node,parent);
+        node.name = typeTemplate.nameGenerator(node);
     }
     return node;
 }
@@ -276,7 +279,7 @@ function confirmSaved() {
 }
 
 //Converts a node and all its children into a string for save/export
-//Since they reference their DOM objects the native JSON stringify can't be used without cloning and pruning the node tree first
+//Since they reference their DOM objects and parents the native JSON stringify can't be used without cloning and pruning the node tree first
 function stringifyNodes(rootNode) {
     var rootCopy = {};
     Object.assign(rootCopy, rootNode);
@@ -286,6 +289,7 @@ function stringifyNodes(rootNode) {
 
 function recursivePruneChildren(rootNode) {
     delete rootNode.domElement;
+    delete rootNode.parent;
     if (rootNode.children) {
         for (var index in rootNode.children) {
             recursivePruneChildren(rootNode.children[index]);
@@ -335,14 +339,30 @@ function recursiveGenerateDOMElement(parentNode) {
     return $domElement;
 }
 
+//Pardon the alliteration, but this recursively goes through the list and does some adjustments after parsing from JSON
+//For example, establishing bidirectional links between objects that have to be severed before JSON stringifying 
+function recursivePostParseProcess(parentNode) {
+    if (parentNode.children) {
+        for (var index in parentNode.children) {
+            parentNode.children[index].parent = parentNode;
+            recursivePostParseProcess(parentNode.children[index]);
+        }
+    }
+}
+
 /* Save/Load End */
 
 /* Data begin */
 
 //Common arrays that will be used by multiple objects
 //TODO: Think about making each item a variable since they'll be referenced and compared a lot
-var temperatureList = ["Mixed", "Cold", "Temperate", "Warm"];
-var temperatureListNoMixed = ["Cold", "Temperate", "Warm"];
+var populationDensity = {
+    uninhabited: "Uninhabited",
+    low: "Low",
+    average: "Average",
+    high: "High"
+}
+var temperatureList = ["Cold", "Temperate", "Warm"];
 var alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
 var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
 
@@ -462,7 +482,10 @@ var objectTypes = {
                 type: "continent",
                 weightedRange: {1:1,2:2,3:3,4:3,5:2,6:1,7:1}
             }
-        ]
+        ],
+        attributes: {
+            populationDensity: populationDensityValue
+        }
     },
     ocean : {
         typeName: "Ocean",
@@ -495,7 +518,8 @@ var objectTypes = {
             }
         ],
         attributes: {
-            temperature: temperatureList
+            populationDensity: populationDensityValue,
+            temperature: arrayWithMixed(temperatureList)
         }
     },
     archipelago: {
@@ -508,7 +532,7 @@ var objectTypes = {
             }
         ],
         attributes: {
-            temperature: temperatureList
+            temperature:  arrayWithMixed(temperatureList)
         },
         inheritAttributes: ["temperature"]
     },
@@ -530,7 +554,7 @@ var objectTypes = {
             //TODO: Island villages
         ],
         attributes: {
-            temperature: temperatureListNoMixed
+            temperature: temperatureList
         },
         inheritAttributes: ["temperature"]
     },
@@ -562,7 +586,8 @@ var objectTypes = {
         typeName: "Continent",
         nameGenerator: continentNameGenerator,
         attributes: {
-            temperature: temperatureList
+            populationDensity: populationDensityValue,
+            temperature: temperatureList,
         },
         children: [
             {
@@ -705,13 +730,61 @@ var objectTypes = {
     }
 };
 
+//By default the editor for an attribute (input, select, etc) will be set based on the attribute's value
+//In some cases this won't work, however, such as when an attribute is generated by a function or we want the user to be able to pick from a wider range of non-default options 
+var attributeEditors = {
+    populationDensity: [populationDensity.uninhabited, populationDensity.low, populationDensity.average, populationDensity.high]
+};
+
 var labels = {
     alignment: "Alignment",
     element: "Element",
-    racialDemographics: "Racial Demographics"
+    racialDemographics: "Racial Demographics",
+    dominantRace: "Dominant Race"
 };
 
 /* Data End */
+
+/* Attribute Value Generators */
+
+/*
+ * Some attributes have fairly complex rules for generation that require a function to set them
+ */
+
+function populationDensityValue(node) {
+    if (node.parent && node.parent.attributes && node.parent.attributes.populationDensity) {
+        var inheritedDensityWeight = {};
+        switch(node.parent.attributes.populationDensity) {
+            case populationDensity.uninhabited:
+                //Uninhabited areas can only have uninhabited children
+                return populationDensity.uninhabited;
+            case populationDensity.low:
+                inheritedDensityWeight[populationDensity.uninhabited] = 25;
+                inheritedDensityWeight[populationDensity.low] = 50;
+                inheritedDensityWeight[populationDensity.average] = 25;
+                break;
+            case populationDensity.average:
+                inheritedDensityWeight[populationDensity.low] = 25;
+                inheritedDensityWeight[populationDensity.average] = 50;
+                inheritedDensityWeight[populationDensity.high] = 25;
+                break;
+            case populationDensity.high:
+                inheritedDensityWeight[populationDensity.average] = 25;
+                inheritedDensityWeight[populationDensity.high] = 50;
+                break;             
+        }
+        return weightedRand(inheritedDensityWeight);
+    }
+    var defaultDensityWeight = {};
+    defaultDensityWeight[populationDensity.uninhabited] = 5;
+    defaultDensityWeight[populationDensity.low] = 20;
+    defaultDensityWeight[populationDensity.average] = 50;
+    defaultDensityWeight[populationDensity.high] = 25;
+    return weightedRand(defaultDensityWeight);
+    
+}
+
+/* End Attribute Value Generators */
 
 /* Helpers Begin */
 
@@ -756,6 +829,12 @@ function shouldInheritAttribute(parent, template, attribute) {
 
 function capitalize(string) {
     return string.substring(0,1).toUpperCase() + string.substring(1);
+}
+
+//Simply prefixes "mixed" to an array of possible values
+//This is mostly done for heritable values and allows children of a node to have mixed values rather than all inheriting from the parent
+function arrayWithMixed(array) {
+    return ["Mixed"].concat(array);
 }
 
 /* Helpers End */
@@ -859,7 +938,7 @@ function materialPlaneNameGenerator(node) {
 }
 
 
-function continentNameGenerator(node, parent) {
+function continentNameGenerator(node) {
     var name;
     if (queuedName) {
         name = queuedName;
