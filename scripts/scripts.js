@@ -184,8 +184,15 @@ function onToggle() {
             for (var index in objectTypes[node.type].children) {
                 var childTemplate = objectTypes[node.type].children[index];
                 var valid = true;
+                //TODO: Remove this once old requirements are updated to the new way
                 if (childTemplate.requirement) {
                     valid = eval(childTemplate.requirement);
+                }
+                if (childTemplate.prerequisites) {
+                    for (var i = 0; i < childTemplate.prerequisites.length; i++) {
+                        var prereq = childTemplate.prerequisites[i];
+                        valid = valid && operators[prereq.operator](node.attributes[prereq.attribute],prereq.value);
+                    }
                 }
                 if (valid) {
                     var numChildren;
@@ -356,23 +363,27 @@ function recursivePostParseProcess(parentNode) {
 
 //Common arrays that will be used by multiple objects
 //TODO: Think about making each item a variable since they'll be referenced and compared a lot
-var populationDensity = {
+const populationDensity = {
     uninhabited: "Uninhabited",
     low: "Low",
     average: "Average",
     high: "High"
 }
-var temperatureList = ["Cold", "Temperate", "Warm"];
-var alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
-var elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
+const temperatureList = ["Cold", "Temperate", "Warm"];
+const alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
+const elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
 
-var planarAttributes = {
-    alignment: alignmentList,
-    element: elementList
-};
-
-var settlementAttributes = {
-    racialDemographics: ["Isolated","Mixed","Integrated"]
+const categoryAttributes = {
+    geography : {
+        populationDensity: populationDensityValue
+    },
+    plane: {
+        alignment: alignmentList,
+        element: elementList
+    },
+    settlement: {
+        populationDensity: populationDensityValue
+    }
 };
 
 var objectTypes = {
@@ -409,6 +420,7 @@ var objectTypes = {
     },
     plane : {
         typeName : "Plane",
+        categories: ['plane'],
         nameGenerator: planarNameGenerator,
         children: [
             {
@@ -421,13 +433,12 @@ var objectTypes = {
                 min: 0,
                 max: 10
             }
-        ],
-        attributes: planarAttributes
+        ]
     },
     demiPlane : {
         typeName: "Demiplane",
+        categories: ['plane'],
         nameGenerator: planarNameGenerator,
-        attributes: planarAttributes,
         inheritAttributes: ["alignment","element"],
         children: [
             {
@@ -453,7 +464,7 @@ var objectTypes = {
     },
     planarLayer: {
         typeName: "Planar Layer",
-        attributes: planarAttributes,
+        categories: ['plane'],
         inheritAttributes: ["alignment","element"]
         //TODO: Planar layer geography
     },
@@ -471,6 +482,7 @@ var objectTypes = {
     },
     planet: {
         typeName: "Planet",
+        categories: ["geography"],
         children: [
             {
                 type: "ocean",
@@ -483,12 +495,10 @@ var objectTypes = {
                 weightedRange: {1:1,2:2,3:3,4:3,5:2,6:1,7:1}
             }
         ],
-        attributes: {
-            populationDensity: populationDensityValue
-        }
     },
     ocean : {
         typeName: "Ocean",
+        categories: ["geography"],
         children: [
             {
                 type: 'archipelago',
@@ -518,7 +528,6 @@ var objectTypes = {
             }
         ],
         attributes: {
-            populationDensity: populationDensityValue,
             temperature: arrayWithMixed(temperatureList)
         }
     },
@@ -584,9 +593,9 @@ var objectTypes = {
     },
     continent: {
         typeName: "Continent",
+        categories: ["geography"],
         nameGenerator: continentNameGenerator,
         attributes: {
-            populationDensity: populationDensityValue,
             temperature: temperatureList,
         },
         children: [
@@ -654,6 +663,7 @@ var objectTypes = {
     },
     coast: {
         typeName: "Coast",
+        categories: ['geography'],
         children: [
             {
                 type: 'beach',
@@ -666,11 +676,41 @@ var objectTypes = {
                 max: 3
             },
             {
+                type: {coastalCitySmall: 1, coastalTownLarge: 9, coastalTownSmall: 30, coastalVillage: 25, coastalHamlet: 20, coastalThorp: 15},
+                min: 1,
+                max: 1,
+                prerequisites: [
+                    {
+                        attribute: 'populationDensity',
+                        operator: '==',
+                        value: populationDensity.low
+                    }
+                ]
+            },
+            {
                 type: {coastalMetropolis: 1, coastalCityLarge: 4, coastalCitySmall: 10, coastalTownLarge: 15, coastalTownSmall: 20, coastalVillage: 20, coastalHamlet: 20, coastalThorp: 10},
-                min: 0,
-                max: 2
+                min: 1,
+                max: 3,
+                prerequisites: [
+                    {
+                        attribute: 'populationDensity',
+                        operator: '==',
+                        value: populationDensity.average
+                    }
+                ]
+            },
+            {
+                type: {coastalMetropolis: 5, coastalCityLarge: 15, coastalCitySmall: 20, coastalTownLarge: 20, coastalTownSmall: 15, coastalVillage: 10, coastalHamlet: 9, coastalThorp: 6},
+                min: 2,
+                max: 4,
+                prerequisites: [
+                    {
+                        attribute: 'populationDensity',
+                        operator: '==',
+                        value: populationDensity.high
+                    }
+                ]
             }
-            //TODO: Coastal cities
         ]
     },
     coastalCliff: {
@@ -680,35 +720,80 @@ var objectTypes = {
     //TODO: Coastal settlement children
     coastalMetropolis: {
         typeName: "Coastal Metropolis",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 3,
+                max: 5
+            }
+        ]
     },
     coastalCityLarge: {
         typeName: "Large Coastal City",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 2,
+                max: 4
+            }
+        ]
     },
     coastalCitySmall: {
         typeName: "Small Coastal City",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 1,
+                max: 3
+            }
+        ]
     },
     coastalTownLarge: {
         typeName: "Large Coastal Town",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 1,
+                max: 2
+            }
+        ]
     },
     coastalTownSmall: {
         typeName: "Small Coastal Town",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 0,
+                max: 1
+            }
+        ]
     },
     coastalVillage: {
         typeName: "Coastal Village",
-        attributes: settlementAttributes
+        categories: ['settlement'],
+        children: [
+            {
+                type: 'temple',
+                min: 0,
+                max: 1
+            }
+        ]
     },
     coastalHamlet: {
         typeName: "Coastal Hamlet",
-        attributes: settlementAttributes
+        categories: ['settlement']
     },
     coastalThorp: {
         typeName: "Coastal Thorp",
-        attributes: settlementAttributes
+        categories: ['settlement']
+    },
+    temple: {
+        typeName: "Temple"
     },
     mountainRange: {
         typeName: "Mountain Range",
@@ -727,8 +812,28 @@ var objectTypes = {
     land : {
         //TODO: Remove when no longer needed. This was just a generic placeholder for testing
         typeName: "Land"
+    },
+    //NPCs from Monster Manual Appendix
+    npcAcolyte: {
+        typeName: "Acolyte",
+        info: {
+            notes: "See Monster Manual Page 342"
+        }
     }
 };
+
+//Add category attributes
+for (var type in objectTypes) {
+    var typeTemplate = objectTypes[type];
+    if (typeTemplate.categories) {
+        if (!typeTemplate.attributes) {
+            typeTemplate.attributes = {};
+        }
+        for (var index in typeTemplate.categories) {
+            Object.assign(typeTemplate.attributes, categoryAttributes[typeTemplate.categories[index]]);
+        }
+    }
+}
 
 //By default the editor for an attribute (input, select, etc) will be set based on the attribute's value
 //In some cases this won't work, however, such as when an attribute is generated by a function or we want the user to be able to pick from a wider range of non-default options 
@@ -737,8 +842,7 @@ var attributeEditors = {
 };
 
 var labels = {
-    alignment: "Alignment",
-    element: "Element",
+    populationDensity: "Population Density",
     racialDemographics: "Racial Demographics",
     dominantRace: "Dominant Race"
 };
@@ -835,6 +939,15 @@ function capitalize(string) {
 //This is mostly done for heritable values and allows children of a node to have mixed values rather than all inheriting from the parent
 function arrayWithMixed(array) {
     return ["Mixed"].concat(array);
+}
+
+var operators = {
+    "==" : function(a,b) {
+        return a==b;
+    },
+    "!=" : function(a,b) {
+        return a!=b;
+    }
 }
 
 /* Helpers End */
