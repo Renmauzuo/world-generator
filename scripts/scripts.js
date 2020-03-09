@@ -19,7 +19,8 @@ $(function () {
 
     //Start by creating a multiverse
     //createRootNode('multiverse');
-    createRootNode('planet');
+    //createRootNode('planet');
+    createRootNode('coastalMetropolis');
 
     $('body').on('click', 'details,p', function (e) {
         e.stopPropagation();
@@ -97,6 +98,7 @@ $(function () {
 
 function showInfoForNode(node) {
     selectedNode = node;
+    var template = objectTypes[node.type];
     $('#info-panel h2').html(objectTypes[node.type].typeName)
     $info = $('#info-panel #fields');
     $info.empty();
@@ -107,7 +109,7 @@ function showInfoForNode(node) {
             $label.appendTo($info);
             //If the template attribute is an array create a picklist
             var $input;
-            var templateAttribute = attributeEditors[attribute] || objectTypes[node.type].attributes[attribute];
+            var templateAttribute = attributeEditors[attribute] || template.attributes[attribute];
             if (Array.isArray(templateAttribute)) {
                 $input = $('<select id='+attribute+'></select>');
                 for (var index in templateAttribute) {
@@ -125,6 +127,14 @@ function showInfoForNode(node) {
             $('<br>').insertAfter($input);
 
         }
+    }
+    if (template.referenceBook) {
+        var referenceText = "For more information please see ";
+        if (template.referencePage) {
+            referenceText+= "page "+template.referencePage+" of ";
+        }
+        referenceText+=template.referenceBook+'.';
+        $('<p>'+referenceText+'</p>').appendTo($info);
     }
 }
 
@@ -368,23 +378,59 @@ const populationDensity = {
     low: "Low",
     average: "Average",
     high: "High"
-}
+};
+
+const book = {
+    monsterManual: "the Monster Manual"
+};
+
 const temperatureList = ["Cold", "Temperate", "Warm"];
 const alignmentList =  ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
 const elementList = ["None", "Fire", "Air", "Water", "Earth", "Positive Energy", "Negative Energy"];
 
 const categoryAttributes = {
     geography : {
-        populationDensity: populationDensityValue
+        populationDensity: populationDensityValue,
+        racialDemographics: racialDemographicsValue
     },
     plane: {
         alignment: alignmentList,
         element: elementList
     },
     settlement: {
-        populationDensity: populationDensityValue
+        racialDemographics: racialDemographicsValue
     }
 };
+
+var races = {
+    dragonborn: {
+        str:2,
+        cha: 1
+    },
+    dwarf: {
+        str: 2
+    },
+    elf: {
+        dex:2
+    },
+    gnome: {
+        int:2
+    },
+    //TODO: Allow 2 random (or class based) ability score increases
+    halfElf: {
+        con: 1,
+        dex: 1,
+        cha: 2
+    },
+    human : {
+        str: 1,
+        dex: 1,
+        con: 1,
+        int: 1,
+        wis: 1,
+        cha: 1
+    }
+}
 
 var objectTypes = {
     multiverse : {
@@ -723,9 +769,9 @@ var objectTypes = {
         categories: ['settlement'],
         children: [
             {
-                type: 'temple',
-                min: 3,
-                max: 5
+                type: 'districtTemple',
+                min: 1,
+                max: 2
             }
         ]
     },
@@ -734,9 +780,8 @@ var objectTypes = {
         categories: ['settlement'],
         children: [
             {
-                type: 'temple',
-                min: 2,
-                max: 4
+                type: 'districtTemple',
+                weightedRange: {1:75, 2:25}
             }
         ]
     },
@@ -745,9 +790,9 @@ var objectTypes = {
         categories: ['settlement'],
         children: [
             {
-                type: 'temple',
+                type: 'districtTemple',
                 min: 1,
-                max: 3
+                max: 1
             }
         ]
     },
@@ -792,8 +837,25 @@ var objectTypes = {
         typeName: "Coastal Thorp",
         categories: ['settlement']
     },
+    districtTemple: {
+        typeName: "Temple District",
+        children: [
+            {
+                type: 'temple',
+                min: 2,
+                max: 3
+            }
+        ]
+    },
     temple: {
-        typeName: "Temple"
+        typeName: "Temple",
+        children: [
+            {
+                type: 'npcAcolyte',
+                min: 5,
+                max: 20
+            }
+        ]
     },
     mountainRange: {
         typeName: "Mountain Range",
@@ -816,9 +878,8 @@ var objectTypes = {
     //NPCs from Monster Manual Appendix
     npcAcolyte: {
         typeName: "Acolyte",
-        info: {
-            notes: "See Monster Manual Page 342"
-        }
+        referenceBook: book.monsterManual,
+        referencePage: 342
     }
 };
 
@@ -885,7 +946,20 @@ function populationDensityValue(node) {
     defaultDensityWeight[populationDensity.average] = 50;
     defaultDensityWeight[populationDensity.high] = 25;
     return weightedRand(defaultDensityWeight);
-    
+}
+
+function racialDemographicsValue(node) {
+    //Inherit parent racial demographics
+    if (node.parent && node.parent.attributes && node.parent.attributes.racialDemographics) {
+        //Copy parent value
+        //TODO: Allow slight modification so not all regions have uniform demographics
+        return Object.assign({},node.parent.attributes.racialDemographics);
+    }
+    var newDemographics = {};
+    for (var race in races) {
+        newDemographics[race] = rand(0,30);
+    }
+    return newDemographics;
 }
 
 /* End Attribute Value Generators */
@@ -933,6 +1007,10 @@ function shouldInheritAttribute(parent, template, attribute) {
 
 function capitalize(string) {
     return string.substring(0,1).toUpperCase() + string.substring(1);
+}
+
+function spacesFromCamelCase(string) {
+    return string.replace(/([A-Z])/g, ' $1');
 }
 
 //Simply prefixes "mixed" to an array of possible values
