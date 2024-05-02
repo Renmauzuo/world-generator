@@ -1,0 +1,37 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset="UTF-8")
+        title World Generator
+    link(rel="stylesheet" type="text/css" href="styles/styles.min.css")
+    body
+        #control-panel.container.panel
+            button#button-generate-new Generate New World
+            br
+            label(for="starting-node") Starting with:
+            select#starting-node
+                option(value="multiverse") Multiverse
+                option(value="plane") Plane
+                option(value="materialPlane") Material Plane
+                option(value="planet") Planet
+            label#load-label(for="load-saved") Load saved:
+            select#load-saved
+            br
+            button#button-import-root Import
+            br
+            button#button-export-root Export
+            br
+        #generation-container.container
+
+        #info-panel.container.panel
+            h2
+            label(for="name") Name:
+            input(type="text" id="name")
+
+            #fields
+            button#button-import-selected Import Child
+            br
+            button#button-export-selected Export
+            br
+        script(src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous")
+        script(src="scripts/scripts.min.js")

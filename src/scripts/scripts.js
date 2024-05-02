@@ -18,9 +18,7 @@ $(function () {
     updateLoadList();
 
     //Start by creating a multiverse
-    //createRootNode('multiverse');
-    //createRootNode('planet');
-    createRootNode('coastalMetropolis');
+    createRootNode('multiverse');
 
     $('body').on('click', 'details,p', function (e) {
         e.stopPropagation();
@@ -100,20 +98,20 @@ function showInfoForNode(node) {
     selectedNode = node;
     var template = objectTypes[node.type];
     $('#info-panel h2').html(objectTypes[node.type].typeName)
-    $info = $('#info-panel #fields');
+    let $info = $('#info-panel #fields');
     $info.empty();
     $('#name').attr('value', node.name || '');
     if (node.attributes) {
         for (var attribute in node.attributes) {
-            $label = $('<label for="'+attribute+'">'+(labels[attribute]||capitalize(attribute))+": </label>");
+            let $label = $('<label for="'+attribute+'">'+(labels[attribute]||capitalize(attribute))+": </label>");
             $label.appendTo($info);
             //If the template attribute is an array create a picklist
-            var $input;
+            let $input;
             var templateAttribute = attributeEditors[attribute] || template.attributes[attribute];
             if (Array.isArray(templateAttribute)) {
                 $input = $('<select id='+attribute+'></select>');
                 for (var index in templateAttribute) {
-                    $option = $('<option></option>').html(templateAttribute[index]).appendTo($input);
+                    let $option = $('<option></option>').html(templateAttribute[index]).appendTo($input);
                     //If this is the current value select it
                     if (templateAttribute[index] === node.attributes[attribute]) {
                         $option.attr('selected',true);
@@ -122,6 +120,8 @@ function showInfoForNode(node) {
             //If it's not an array just check the type of the current value
             } else if (typeof(node.attributes[attribute]) === "string") {
                 $input = $('<input type="text" id='+attribute+'>').attr('value',node.attributes[attribute]);
+            } else {
+                $input = $('<p>TBD</p>');
             }
             $input.insertAfter($label);
             $('<br>').insertAfter($input);
