@@ -1,12 +1,14 @@
 const gulp = require('gulp');
 const gulpLoadPlugins = require('gulp-load-plugins');
 const promisedDel = require('promised-del');
+const sass = require('sass');
 const postcssCombineSelectors = require('postcss-combine-duplicated-selectors');
 const postcssImport = require('postcss-import');
 const autoprefixer = require('autoprefixer');
 const cssnano = require('cssnano');
 const rollup = require('gulp-better-rollup');
 const rollupBabel = require('rollup-plugin-babel');
+const rollupTypescript = require('rollup-plugin-typescript2');
 const cachebust = require('gulp-cache-bust');
 
 const $ = gulpLoadPlugins();
@@ -41,10 +43,10 @@ const cacheBusting = () =>
 const css = () =>
 	gulp.src('src/**/*.scss', { base: 'src' })
 		.pipe(development($.sourcemaps.init()))
-		.pipe($.sass({
+		.pipe($.sass(sass)({
 			indentType: 'space',
 			indentWidth: 2
-		}).on('error', $.sass.logError))
+		}).on('error', $.sass(sass).logError))
 		.pipe($.postcss([
 			postcssImport(),
 			postcssCombineSelectors({ removeDuplicatedProperties: true }),
@@ -60,16 +62,19 @@ const css = () =>
 
 
 const js = () =>
-	gulp.src('src/**/*.js', { base: 'src' })
+	gulp.src('src/scripts/scripts.ts', { base: 'src' })
 		.pipe(development($.sourcemaps.init()))
 		.pipe(rollup({
-			treeshake: false, //No treeshaking because some of the constants in mosnters.js aren't used until runtime
-			plugins: [rollupBabel()]
+			treeshake: false, //No treeshaking because some of the constants aren't used until runtime
+			plugins: [
+				rollupTypescript({ tsconfig: './tsconfig.json' }),
+				rollupBabel({ extensions: ['.ts', '.js'], exclude: 'node_modules/**' })
+			]
 		}, {
 			format: 'cjs'
 		}))
 		.pipe($.rename((path) => {
-			path.basename += '.min'
+			path.extname = '.min.js'
 		}))
 		.pipe(development($.sourcemaps.write('.')))
 		.pipe(production($.eol()))
@@ -84,7 +89,7 @@ const build = gulp.series(gulp.parallel(css, js, html, json), cacheBusting);
 const watch = () => {
 	gulp.watch('src/**/*.scss', gulp.series(cleanCSS, css));
 	gulp.watch('src/**/*.pug', gulp.series(cleanHTML, html, cacheBusting));
-	gulp.watch('src/**/*.js', gulp.series(cleanJS, js));
+	gulp.watch('src/**/*.ts', gulp.series(cleanJS, js));
 	gulp.watch('src/**/*.json', gulp.series(cleanJSON, json));
 };
 		
