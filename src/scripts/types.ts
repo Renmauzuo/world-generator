@@ -41,7 +41,6 @@ export interface ObjectTypeTemplate {
 export interface WorldNode {
   type: string;
   name?: string;
-  needsChildren: boolean;
   parent?: WorldNode;
   children?: WorldNode[];
   attributes?: Record<string, any>;

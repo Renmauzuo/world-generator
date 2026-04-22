@@ -35,6 +35,16 @@ $(function () {
         }
     });
 
+    $('body').on('click', '.button-generate-children', function (e: Event) {
+        e.stopPropagation();
+        const $details = $(this).closest('details');
+        const node = $details.data('node');
+        if (node) {
+            generateChildrenForNode(node);
+            $details.attr('open', '');
+        }
+    });
+
     $('#info-panel').on('input', 'input,select', function () {
         const attribute: string = $(this).attr('id');
         // If its name changed then update the associated DOM element
@@ -169,11 +179,9 @@ function createRootNode(nodeType: string): void {
 }
 
 function generateNode(nodeType: string, parent?: WorldNode): WorldNode {
-    // Children will be generated on demand, so we need to remember if they've been generated or not
     const typeTemplate = objectTypes[nodeType];
     const node: WorldNode = {
-        type: nodeType,
-        needsChildren: typeTemplate.children != undefined
+        type: nodeType
     };
     if (parent) {
         node.parent = parent;
@@ -210,54 +218,48 @@ function generateNode(nodeType: string, parent?: WorldNode): WorldNode {
     return node;
 }
 
-// Delegation doesn't seem to work with the toggle event so each details object gets its event added individually
-function onToggle(this: HTMLElement): void {
-    const node: WorldNode = $(this).data('node');
-    // If node is being opened see if children are needed
-    if ($(this).attr('open')) {
-        if (node.needsChildren) {
-            saved = false;
-            node.needsChildren = false;
-            node.children = [];
-            for (const index in objectTypes[node.type].children) {
-                const childTemplate = objectTypes[node.type].children![index];
-                let valid = true;
-                //TODO: Remove this once old requirements are updated to the new way
-                if (childTemplate.requirement) {
-                    valid = eval(childTemplate.requirement);
-                }
-                if (childTemplate.prerequisites) {
-                    for (let i = 0; i < childTemplate.prerequisites.length; i++) {
-                        const prereq = childTemplate.prerequisites[i];
-                        valid = valid && operators[prereq.operator](node.attributes![prereq.attribute], prereq.value);
-                    }
-                }
-                if (valid) {
-                    let numChildren: number;
-                    if (childTemplate.weightedRange) {
-                        numChildren = parseInt(weightedRand(childTemplate.weightedRange), 10);
-                    } else {
-                        numChildren = rand(childTemplate.min!, childTemplate.max!);
-                    }
-                    for (let i = 0; i < numChildren; i++) {
-                        let childType: string;
-                        if (typeof childTemplate.type === "object") {
-                            // If it's an object treat it as a weighted array
-                            childType = weightedRand(childTemplate.type as Record<string, number>);
-                        } else {
-                            childType = childTemplate.type;
-                        }
-                        addChildToNode(childType, node);
-                        if (childTemplate.requiredSibling) {
-                            addChildToNode(childTemplate.requiredSibling, node);
-                        }
-                    }
-                    // Reset queued name so it doesn't impact cousins or more distant nodes
-                    setQueuedName(null);
-                }
+// Generates children for a node based on its type template and appends them to its DOM element
+function generateChildrenForNode(node: WorldNode): void {
+    if (!node.children) {
+        node.children = [];
+    }
+    for (const index in objectTypes[node.type].children) {
+        const childTemplate = objectTypes[node.type].children![index];
+        let valid = true;
+        //TODO: Remove this once old requirements are updated to the new way
+        if (childTemplate.requirement) {
+            valid = eval(childTemplate.requirement);
+        }
+        if (childTemplate.prerequisites) {
+            for (let i = 0; i < childTemplate.prerequisites.length; i++) {
+                const prereq = childTemplate.prerequisites[i];
+                valid = valid && operators[prereq.operator](node.attributes![prereq.attribute], prereq.value);
             }
         }
+        if (valid) {
+            let numChildren: number;
+            if (childTemplate.weightedRange) {
+                numChildren = parseInt(weightedRand(childTemplate.weightedRange), 10);
+            } else {
+                numChildren = rand(childTemplate.min!, childTemplate.max!);
+            }
+            for (let i = 0; i < numChildren; i++) {
+                let childType: string;
+                if (typeof childTemplate.type === "object") {
+                    childType = weightedRand(childTemplate.type as Record<string, number>);
+                } else {
+                    childType = childTemplate.type;
+                }
+                addChildToNode(childType, node);
+                if (childTemplate.requiredSibling) {
+                    addChildToNode(childTemplate.requiredSibling, node);
+                }
+            }
+            // Reset queued name so it doesn't impact cousins or more distant nodes
+            setQueuedName(null);
+        }
     }
+    saved = false;
 }
 
 function addChildToNode(childType: string, node: WorldNode): void {
@@ -266,19 +268,16 @@ function addChildToNode(childType: string, node: WorldNode): void {
     domObjectForNode(childNode).appendTo(node.domElement!);
 }
 
-// Generates an HTML details object for a given node
+// Generates an HTML details element for a given node
 function domObjectForNode(node: WorldNode): JQuery {
     let summaryText = objectTypes[node.type].typeName;
     if (node.name && node.name.length) {
         summaryText += ' (' + node.name + ')';
     }
-    // If it has children then create a details group
     let $domElement;
     if (objectTypes[node.type].children) {
-        $domElement = $('<details><summary>' + summaryText + '</summary></details>');
-        $domElement.on('toggle', onToggle);
+        $domElement = $('<details><summary>' + summaryText + ' <button class="button-generate-children">+ Generate Children</button></summary></details>');
     } else {
-        // If it has no children then a simple p tag will do
         $domElement = $('<p>' + summaryText + '</p>');
     }
     $domElement.data('node', node);
