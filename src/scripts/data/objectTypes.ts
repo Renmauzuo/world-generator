@@ -8,7 +8,6 @@ import {
     materialPlaneNameGenerator,
     continentNameGenerator
 } from '../nameGenerators';
-
 export const objectTypes: Record<string, ObjectTypeTemplate> = {
     // Multiverse is the ultimate root object
     multiverse: {
@@ -65,19 +64,19 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 type: "land",
                 min: 1,
                 max: 1,
-                requirement: "node.attributes.element !== 'Water'"
+                conditions: [{ attribute: 'element', value: 'Water', match: false }]
             },
             {
                 type: "ocean",
                 min: 1,
                 max: 1,
-                requirement: "node.attributes.element === 'Water'"
+                conditions: [{ attribute: 'element', value: 'Water' }]
             },
             {
                 type: "lavaLake",
                 min: 0,
                 max: 1,
-                requirement: "node.attributes.element === 'Fire'"
+                conditions: [{ attribute: 'element', value: 'Fire' }]
             }
             //TODO: More demiplane geography
         ]
@@ -103,25 +102,34 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 type: 'tropicalForest',
                 min: 0,
                 max: 5,
-                requirement: "node.attributes.temperature === 'Warm' || node.attributes.temperature === 'Mixed'"
+                conditions: [
+                    { attribute: 'temperature', value: 'Warm' },
+                    { attribute: 'temperature', value: 'Mixed' }
+                ]
             },
             {
                 type: 'deciduousForest',
                 min: 0,
                 max: 5,
-                requirement: "node.attributes.temperature === 'Temperate' || node.attributes.temperature === 'Mixed'"
+                conditions: [
+                    { attribute: 'temperature', value: 'Temperate' },
+                    { attribute: 'temperature', value: 'Mixed' }
+                ]
             },
             {
                 type: 'coniferousForest',
                 min: 0,
                 max: 5,
-                requirement: "node.attributes.temperature !== 'Warm'"
+                conditions: [{ attribute: 'temperature', value: 'Warm', match: false }]
             },
             {
                 type: 'tundra',
                 min: 0,
                 max: 5,
-                requirement: "node.attributes.temperature === 'Cold' || node.attributes.temperature === 'Mixed'"
+                conditions: [
+                    { attribute: 'temperature', value: 'Cold' },
+                    { attribute: 'temperature', value: 'Mixed' }
+                ]
             },
             { type: 'coast', min: 1, max: 3 },
             { type: 'mountainRange', min: 0, max: 3 }
@@ -140,7 +148,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 type: 'reef',
                 min: 0,
                 max: 5,
-                requirement: "node.attributes.temperature === 'Warm'"
+                conditions: [{ attribute: 'temperature', value: 'Warm' }]
             }
         ],
         attributes: {
@@ -209,25 +217,19 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 type: { coastalCitySmall: 1, coastalTownLarge: 9, coastalTownSmall: 30, coastalVillage: 25, coastalHamlet: 20, coastalThorp: 15 },
                 min: 1,
                 max: 1,
-                prerequisites: [
-                    { attribute: 'populationDensity', operator: '==', value: populationDensity.low }
-                ]
+                conditions: [{ attribute: 'populationDensity', value: populationDensity.low }]
             },
             {
                 type: { coastalMetropolis: 1, coastalCityLarge: 4, coastalCitySmall: 10, coastalTownLarge: 15, coastalTownSmall: 20, coastalVillage: 20, coastalHamlet: 20, coastalThorp: 10 },
                 min: 1,
                 max: 3,
-                prerequisites: [
-                    { attribute: 'populationDensity', operator: '==', value: populationDensity.average }
-                ]
+                conditions: [{ attribute: 'populationDensity', value: populationDensity.average }]
             },
             {
                 type: { coastalMetropolis: 5, coastalCityLarge: 15, coastalCitySmall: 20, coastalTownLarge: 20, coastalTownSmall: 15, coastalVillage: 10, coastalHamlet: 9, coastalThorp: 6 },
                 min: 2,
                 max: 4,
-                prerequisites: [
-                    { attribute: 'populationDensity', operator: '==', value: populationDensity.high }
-                ]
+                conditions: [{ attribute: 'populationDensity', value: populationDensity.high }]
             }
         ]
     },
@@ -248,7 +250,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 type: 'reef',
                 min: 0,
                 max: 1,
-                requirement: "node.attributes.temperature === 'Warm'",
+                conditions: [{ attribute: 'temperature', value: 'Warm' }],
                 requiredSibling: 'lagoon'
             },
             { type: 'beach', min: 1, max: 2 }

@@ -60,8 +60,3 @@ export function spacesFromCamelCase(string: string): string {
 export function arrayWithMixed(array: string[]): string[] {
     return ["Mixed"].concat(array);
 }
-
-export const operators: Record<string, (a: any, b: any) => boolean> = {
-    "==": (a, b) => a == b,
-    "!=": (a, b) => a != b
-};

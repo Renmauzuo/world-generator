@@ -9,10 +9,13 @@ export interface MinMax {
   max: number;
 }
 
-export interface Prerequisite {
+export interface Condition {
+  /** The attribute key on the node to check */
   attribute: string;
-  operator: string;
+  /** The value to compare against */
   value: string;
+  /** Whether the attribute should match (true) or not match (false) the value. Defaults to true. */
+  match?: boolean;
 }
 
 export interface ChildTemplate {
@@ -20,8 +23,8 @@ export interface ChildTemplate {
   min?: number;
   max?: number;
   weightedRange?: WeightedRange;
-  requirement?: string;
-  prerequisites?: Prerequisite[];
+  /** One or more conditions evaluated as OR — child is valid if any condition passes */
+  conditions?: Condition[];
   requiredSibling?: string;
 }
 

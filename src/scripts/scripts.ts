@@ -1,7 +1,7 @@
 import type { WorldNode } from './types';
 import { objectTypes } from './data/objectTypes';
 import { attributeEditors, labels } from './attributeGenerators';
-import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize, operators } from './helpers';
+import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
 
 let rootNode: WorldNode;
@@ -24,8 +24,7 @@ $(function () {
     updateLoadList();
 
     // Start by creating a multiverse
-    // createRootNode('multiverse');
-    createRootNode('tundra');
+    createRootNode('multiverse');
 
     $('body').on('click', 'details,p', function (e: Event) {
         e.stopPropagation();
@@ -225,16 +224,14 @@ function generateChildrenForNode(node: WorldNode): void {
     }
     for (const index in objectTypes[node.type].children) {
         const childTemplate = objectTypes[node.type].children![index];
+        // A child is valid if it has no conditions, or if any condition passes (OR logic)
         let valid = true;
-        //TODO: Remove this once old requirements are updated to the new way
-        if (childTemplate.requirement) {
-            valid = eval(childTemplate.requirement);
-        }
-        if (childTemplate.prerequisites) {
-            for (let i = 0; i < childTemplate.prerequisites.length; i++) {
-                const prereq = childTemplate.prerequisites[i];
-                valid = valid && operators[prereq.operator](node.attributes![prereq.attribute], prereq.value);
-            }
+        if (childTemplate.conditions && childTemplate.conditions.length > 0) {
+            valid = childTemplate.conditions.some(condition => {
+                const nodeValue = node.attributes?.[condition.attribute];
+                const shouldMatch = condition.match ?? true;
+                return shouldMatch ? nodeValue === condition.value : nodeValue !== condition.value;
+            });
         }
         if (valid) {
             let numChildren: number;

@@ -70,13 +70,13 @@ Child templates support:
 - `min`/`max` — random count in range
 - `weightedRange` — weighted random count (e.g. `{1:1, 2:2, 3:3}`)
 - `type` as a weighted object — weighted random type selection
-- `requirement` — legacy eval-based predicate string (to be refactored to structured predicates)
-- `prerequisites` — structured predicate array `[{ attribute, operator, value }]`
+- `conditions` — array of `Condition` objects evaluated as OR — child is valid if any condition passes. Each condition has `attribute`, `value`, and optional `match` (default `true` = must equal, `false` = must not equal)
 - `requiredSibling` — always spawn this type alongside the child
+
+- **Child generation** is now on-demand via a "Generate Children" button on each node. Clicking it generates and appends a set of children and opens the `<details>` element. The button can be clicked multiple times to add more children.
 
 ## Known TODOs / In-Flight
 
-- **`requirement` strings** use `eval()` and will be refactored to structured predicates (like `prerequisites`) in the future
 - **`races` / `racialDemographics`** will likely be removed — the project is moving toward shared npm packages for this kind of data
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
 - **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
@@ -90,3 +90,7 @@ Child templates support:
 - New name generators go in `src/scripts/nameGenerators.ts`
 - Node type keys are camelCase (e.g. `coastalCityLarge`, `mammothHerd`)
 - The hierarchy is roughly: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean → Region → Locality → Point of Interest / Creature
+
+## Steering Maintenance
+
+Keep this file up to date as the project evolves. After any session that changes architecture, adds new patterns, resolves a TODO, or introduces new conventions, update the relevant sections. Don't wait to be asked.
