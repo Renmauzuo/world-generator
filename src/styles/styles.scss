@@ -1,3 +1,5 @@
+@import '@toolkit5e/statblock/dist/statblock.css';
+
 body {
     margin: 0;
 }
@@ -8,7 +10,7 @@ body {
     height: 100%;
     width: 200px;
     bottom: 0;
-    
+    overflow-y: auto;
 }
 
 div.container {
@@ -40,6 +42,46 @@ h2 {
 
 #info-panel {
     right: 0;
+}
+
+#statblock-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+
+    &.is-open {
+        display: block;
+    }
+
+    .statblock-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .statblock-modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 90vh;
+        overflow-y: auto;
+
+        // The stat-block is the visual container — position relative so the close button anchors to it
+        .stat-block {
+            position: relative;
+            margin: 0;
+        }
+
+        #statblock-modal-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            margin-bottom: 0;
+            z-index: 1;
+        }
+    }
 }
 
 label {

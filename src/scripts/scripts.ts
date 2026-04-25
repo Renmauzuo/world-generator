@@ -3,6 +3,9 @@ import { objectTypes } from './data/objectTypes';
 import { attributeEditors, labels } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
+import { scaleMonster } from '@toolkit5e/monster-scaler';
+import type { MonsterID } from '@toolkit5e/monster-scaler';
+import { renderStatblock } from '@toolkit5e/statblock';
 
 let rootNode: WorldNode;
 let selectedNode: WorldNode;
@@ -24,7 +27,7 @@ $(function () {
     updateLoadList();
 
     // Start by creating a multiverse
-    createRootNode('multiverse');
+    createRootNode('tundra');
 
     $('body').on('click', 'details,p', function (e: Event) {
         e.stopPropagation();
@@ -42,6 +45,30 @@ $(function () {
             generateChildrenForNode(node);
             $details.attr('open', '');
         }
+    });
+
+    $('body').on('click', '.button-view-statblock', function (e: Event) {
+        e.stopPropagation();
+        const template = objectTypes[selectedNode.type];
+        if (!template.creature) return;
+        const cr = String(selectedNode.attributes?.challengeRating ?? 1);
+        try {
+            const statblock = scaleMonster(template.creature as MonsterID, cr, {
+                variant: template.variant
+            });
+            statblock.name = selectedNode.name || template.typeName;
+            statblock.description = 'the ' + statblock.slug;
+            const $body = $('#statblock-modal-body');
+            $body.empty();
+            renderStatblock(statblock, $body[0]);
+            $('#statblock-modal').addClass('is-open');
+        } catch (err) {
+            console.warn('Could not render statblock for', template.creature, err);
+        }
+    });
+
+    $('#statblock-modal-close, .statblock-modal-backdrop').on('click', function () {
+        $('#statblock-modal').removeClass('is-open');
     });
 
     $('#info-panel').on('input', 'input,select', function () {
@@ -156,7 +183,7 @@ function showInfoForNode(node: WorldNode): void {
         $('<p>' + referenceText + '</p>').appendTo($info);
     }
 
-    // Build a link to the monster scaler for creatures
+    // Build a link to the monster scaler for creatures, and a button to open the statblock modal
     if (template.creature) {
         let creatureLink = 'https://renmauzuo.github.io/monster-scaler/monsters.html?creature=' + template.creature;
         if (template.variant) {
@@ -166,7 +193,8 @@ function showInfoForNode(node: WorldNode): void {
             creatureLink += '&target-cr=' + node.attributes.challengeRating;
         }
         creatureLink += '&name=' + template.typeName;
-        $('<p><a href="' + creatureLink + '" target="_blank">View statblock. (Opens in new window.)</a></p>').appendTo($info);
+        $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
+        $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);
     }
 }
 

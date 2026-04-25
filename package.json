@@ -7,6 +7,8 @@
     "production": "NODE_ENV=production npx gulp rebuild"
   },
   "dependencies": {
+    "@toolkit5e/monster-scaler": "1.1.1",
+    "@toolkit5e/statblock": "1.1.1",
     "@types/jquery": "3.5.29",
     "autoprefixer": "^10.2.6",
     "cssnano": "^5.0.5",
@@ -27,6 +29,8 @@
     "postcss-import": "^14.0.2",
     "promised-del": "^1.0.2",
     "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-commonjs": "10.1.0",
+    "rollup-plugin-node-resolve": "5.2.0",
     "rollup-plugin-typescript2": "0.36.0",
     "sass": "1.77.8",
     "typescript": "5.4.5"

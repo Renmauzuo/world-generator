@@ -9,6 +9,8 @@ const cssnano = require('cssnano');
 const rollup = require('gulp-better-rollup');
 const rollupBabel = require('rollup-plugin-babel');
 const rollupTypescript = require('rollup-plugin-typescript2');
+const rollupResolve = require('rollup-plugin-node-resolve');
+const rollupCommonjs = require('rollup-plugin-commonjs');
 const cachebust = require('gulp-cache-bust');
 
 const $ = gulpLoadPlugins();
@@ -48,7 +50,7 @@ const css = () =>
 			indentWidth: 2
 		}).on('error', $.sass(sass).logError))
 		.pipe($.postcss([
-			postcssImport(),
+			postcssImport({ path: ['node_modules'] }),
 			postcssCombineSelectors({ removeDuplicatedProperties: true }),
 			autoprefixer({ grid: true }),
 			cssnano({ autoprefixer: false })
@@ -67,6 +69,8 @@ const js = () =>
 		.pipe(rollup({
 			treeshake: false, //No treeshaking because some of the constants aren't used until runtime
 			plugins: [
+				rollupResolve({ browser: true, preferBuiltins: false }),
+				rollupCommonjs(),
 				rollupTypescript({ tsconfig: './tsconfig.json' }),
 				rollupBabel({ extensions: ['.ts', '.js'], exclude: 'node_modules/**' })
 			]
