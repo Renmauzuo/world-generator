@@ -28,7 +28,7 @@ $(function () {
     // Start by creating a multiverse
     createRootNode('multiverse');
 
-    $('body').on('click', 'details,p', function (e: Event) {
+    $('body').on('click', 'details,p', function (e: JQuery.Event) {
         e.stopPropagation();
         const node = $(this).data('node');
         if (node) {
@@ -36,7 +36,7 @@ $(function () {
         }
     });
 
-    $('body').on('click', '.button-generate-children', function (e: Event) {
+    $('body').on('click', '.button-generate-children', function (e: JQuery.Event) {
         e.stopPropagation();
         const $details = $(this).closest('details');
         const node = $details.data('node');
@@ -46,7 +46,7 @@ $(function () {
         }
     });
 
-    $('body').on('click', '.button-view-statblock', function (e: Event) {
+    $('body').on('click', '.button-view-statblock', function (e: JQuery.Event) {
         e.stopPropagation();
         const template = objectTypes[selectedNode.type];
         if (!template.creature) return;
@@ -71,7 +71,7 @@ $(function () {
     });
 
     // Close modal when clicking the backdrop (outside the statblock content)
-    $('#statblock-modal').on('click', function (e: Event) {
+    $('#statblock-modal').on('click', function (e: JQuery.ClickEvent) {
         if (e.target === this) {
             $(this).removeClass('is-open');
         }
