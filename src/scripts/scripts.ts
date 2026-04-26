@@ -70,6 +70,13 @@ $(function () {
         $('#statblock-modal').removeClass('is-open');
     });
 
+    // Close modal when clicking the backdrop (outside the statblock content)
+    $('#statblock-modal').on('click', function (e: Event) {
+        if (e.target === this) {
+            $(this).removeClass('is-open');
+        }
+    });
+
     $('#info-panel').on('input', 'input,select', function () {
         const attribute: string = $(this).attr('id');
         // If its name changed then update the associated DOM element
