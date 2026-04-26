@@ -6,12 +6,11 @@ const postcssCombineSelectors = require('postcss-combine-duplicated-selectors');
 const postcssImport = require('postcss-import');
 const autoprefixer = require('autoprefixer');
 const cssnano = require('cssnano');
-const rollup = require('gulp-better-rollup');
-const rollupBabel = require('rollup-plugin-babel');
+const { rollup: rollupBuild } = require('rollup');
 const rollupTypescript = require('rollup-plugin-typescript2');
-const rollupResolve = require('rollup-plugin-node-resolve');
-const rollupCommonjs = require('rollup-plugin-commonjs');
-const cachebust = require('gulp-cache-bust');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const $ = gulpLoadPlugins();
 
@@ -39,7 +38,20 @@ const html = () =>
 
 const cacheBusting = () =>
     gulp.src('docs/**/*.html', {base: 'docs'})
-        .pipe(cachebust())
+        .pipe(require('through2').obj(function(file, enc, cb) {
+            let html = file.contents.toString();
+            html = html.replace(/(src|href)="([^"]+\.(js|css))"/g, (match, attr, filePath) => {
+                const absPath = path.join('docs', filePath);
+                try {
+                    const hash = crypto.createHash('md5').update(fs.readFileSync(absPath)).digest('hex');
+                    return `${attr}="${filePath}?v=${hash}"`;
+                } catch (e) {
+                    return match;
+                }
+            });
+            file.contents = Buffer.from(html);
+            cb(null, file);
+        }))
 		.pipe(gulp.dest('docs'));
 
 const css = () =>
@@ -63,26 +75,30 @@ const css = () =>
 		.pipe(gulp.dest('docs'));
 
 
-const js = () =>
-	gulp.src('src/scripts/scripts.ts', { base: 'src' })
-		.pipe(development($.sourcemaps.init()))
-		.pipe(rollup({
-			treeshake: false, //No treeshaking because some of the constants aren't used until runtime
-			plugins: [
-				rollupResolve({ browser: true, preferBuiltins: false }),
-				rollupCommonjs(),
-				rollupTypescript({ tsconfig: './tsconfig.json' }),
-				rollupBabel({ extensions: ['.ts', '.js'], exclude: 'node_modules/**' })
-			]
-		}, {
-			format: 'cjs'
-		}))
-		.pipe($.rename((path) => {
-			path.extname = '.min.js'
-		}))
-		.pipe(development($.sourcemaps.write('.')))
-		.pipe(production($.eol()))
-		.pipe(gulp.dest('docs'));
+const js = async () => {
+	const { nodeResolve } = await import('@rollup/plugin-node-resolve');
+	const commonjs = (await import('@rollup/plugin-commonjs')).default;
+
+	const isDev = process.env.NODE_ENV !== 'production';
+
+	const bundle = await rollupBuild({
+		input: 'src/scripts/scripts.ts',
+		treeshake: false, //No treeshaking because some of the constants aren't used until runtime
+		plugins: [
+			nodeResolve({ browser: true, preferBuiltins: false }),
+			commonjs(),
+			rollupTypescript({ tsconfig: './tsconfig.json' })
+		]
+	});
+
+	await bundle.write({
+		file: 'docs/scripts/scripts.min.js',
+		format: 'iife',
+		sourcemap: isDev
+	});
+
+	await bundle.close();
+};
 
 const json = () =>
     gulp.src('src/**/*.json', { base: 'src' })
