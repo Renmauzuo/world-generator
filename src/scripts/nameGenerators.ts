@@ -1,5 +1,5 @@
 import type { WorldNode } from './types';
-import { rand, randFromArray } from './helpers';
+import { rand, randFromArray, weightedRand } from './helpers';
 
 // Sometimes an element's name will impact a sibling. This stores the queued name.
 export let queuedName: string | null = null;
@@ -103,6 +103,92 @@ export function planarNameGenerator(node: WorldNode): string {
 
 export function materialPlaneNameGenerator(_node: WorldNode): string {
     return "The " + randFromArray(["Prime", "Lost", "Unknown", "Forgotten", "Major", "Minor", "Mortal"]) + " Material Plane";
+}
+
+export function forestNameGenerator(node: WorldNode): string {
+    const temperature: string = node.attributes?.temperature ?? '';
+    const prefixes = ['Green', 'Shadow', 'Whisper', 'Silver', 'Iron', 'Moss', 'Thorn', 'Amber', 'Dusk', 'Dawn'];
+    const coldPrefixes = ['Frost', 'White', 'Ice', 'Winter', 'Snow', 'Pine'];
+    const warmPrefixes = ['Sun', 'Gold', 'Ember', 'Crimson', 'Jade', 'Vine'];
+    const suffixes = ['wood', 'grove', 'weald', 'thicket', 'hollow'];
+
+    let pool = [...prefixes];
+    if (temperature === 'Cold') pool = pool.concat(coldPrefixes);
+    if (temperature === 'Warm') pool = pool.concat(warmPrefixes);
+
+    return randFromArray(pool) + randFromArray(suffixes);
+}
+
+export function mountainNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Grey', 'Iron', 'Storm', 'Thunder', 'Cloud', 'Stone', 'Frost', 'Fire', 'Dragon', 'Eagle', 'Hammer', 'Anvil'];
+    const suffixes = ['peak', 'horn', 'spire', 'crag', 'fang', 'crown', 'tooth'];
+    return randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function mountainRangeNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Grey', 'Iron', 'Storm', 'Thunder', 'Cloud', 'Stone', 'Frost', 'Dragon', 'World', 'Spine'];
+    const suffixes = [' Mountains', ' Peaks', ' Range', ' Spine', ' Teeth', ' Wall'];
+    return "The " + randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function plainsNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Golden', 'Wind', 'Sun', 'Amber', 'Vast', 'Endless', 'Thunder', 'Silver', 'Tall'];
+    const suffixes = [' Plains', ' Grasslands', ' Steppe', ' Prairie', ' Savanna', ' Fields'];
+    return "The " + randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function swampNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Black', 'Dead', 'Murk', 'Rot', 'Fog', 'Gloom', 'Dread', 'Mire', 'Sorrow'];
+    const suffixes = ['mire', 'fen', 'marsh', 'bog', 'moor', 'swamp'];
+    return randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function desertNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Burning', 'Endless', 'Red', 'White', 'Glass', 'Salt', 'Sun', 'Bone', 'Dust'];
+    const suffixes = [' Sands', ' Wastes', ' Desert', ' Expanse', ' Barrens', ' Dunes'];
+    return "The " + randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function caveNameGenerator(_node: WorldNode): string {
+    const styles: Array<() => string> = [
+        // "The X Caverns"
+        () => "The " + randFromArray(['Deep', 'Dark', 'Crystal', 'Echo', 'Shadow', 'Howling', 'Dripping', 'Lost']) + ' ' + randFromArray(['Caverns', 'Caves', 'Depths', 'Tunnels', 'Warrens']),
+        // "Xmouth Cave"
+        () => randFromArray(['Black', 'Stone', 'Iron', 'Bone', 'Fang', 'Spider', 'Bear']) + "mouth Cave",
+    ];
+    return randFromArray(styles)();
+}
+
+export function lakeNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Silver', 'Crystal', 'Mirror', 'Shadow', 'Moon', 'Still', 'Deep', 'Blue', 'Clear'];
+    const suffixes = [' Lake', ' Mere', ' Loch', ' Pool', ' Waters'];
+    return randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function riverNameGenerator(_node: WorldNode): string {
+    const names = ['Silver', 'Winding', 'Rush', 'Stone', 'Iron', 'White', 'Dark', 'Swift', 'Amber', 'Frost'];
+    const suffixes = ['water', 'run', 'flow', 'brook', 'stream', 'creek'];
+    return "The " + randFromArray(names) + randFromArray(suffixes);
+}
+
+export function savannaNameGenerator(_node: WorldNode): string {
+    const prefixes = ['Golden', 'Sun', 'Lion', 'Amber', 'Dry', 'Vast', 'Thorn', 'Acacia', 'Red'];
+    const suffixes = [' Savanna', ' Veldt', ' Grasslands', ' Wilds', ' Expanse'];
+    return "The " + randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+export function forgottenBiomeNameGenerator(node: WorldNode): string {
+    const adjectives = ['Forgotten', 'Lost', 'Hidden', 'Ancient', 'Primeval', 'Untouched', 'Timeless'];
+    const adjective = randFromArray(adjectives);
+
+    // Derive the place noun from the node type
+    const placeNames: Record<string, string[]> = {
+        forgottenIsland: ['Island', 'Isle', 'Atoll'],
+        forgottenForest: ['Forest', 'Jungle', 'Wilds'],
+        forgottenValley: ['Valley', 'Canyon', 'Gorge', 'Hollow'],
+    };
+    const places = placeNames[node.type] ?? ['Land'];
+    return "The " + adjective + ' ' + randFromArray(places);
 }
 
 export function continentNameGenerator(_node: WorldNode): string {

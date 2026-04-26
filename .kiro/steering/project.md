@@ -81,8 +81,39 @@ Child templates support:
 - **`races` / `racialDemographics`** will likely be removed — the project is moving toward shared npm packages for this kind of data
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
 - **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
-- Many node types have `//TODO` children stubs (ocean geography, forest children, etc.)
-- **Full creature coverage** — long-term goal is for every creature in `@toolkit5e/monster-scaler`'s `monsterList` to have a path in the world generator's node hierarchy. The typed `creature` field (`MonsterID`) ensures only valid keys are used.
+- Remaining `//TODO` stubs: planar layer geography, demiplane geography, moons/celestial bodies, coastal settlement children
+- **Full creature coverage** — long-term goal is for every creature in `@toolkit5e/monster-scaler`'s `monsterList` to have a path in the world generator's node hierarchy. The typed `creature` field (`MonsterID`) ensures only valid keys are used. Currently referenced: all 27 monsterList entries. Remaining unplaced: `commoner`, `dolphinDelighter`.
+
+## Content Coverage
+
+### Regions (children of Continent)
+Forests (rainforest, deciduous, coniferous), tundra, plains, hills, swamp, desert, savanna, coast, mountain range, sea, lake, river. Plus rare **Forgotten biomes** (forgotten island, forgotten forest, forgotten valley) that contain dinosaurs.
+
+### Creature Groups
+Wolf packs, bear dens, boar sounders, horse herds, shark packs, whale pods, spider nests, eagle nests, ape troops, dryad groves, awakened tree copses, crocodile dens, shadow haunts, camel caravans, elephant herds, mammoth herds, lion prides, hyena packs, jackal packs, zebra herds, gorilla troops, warthog sounders, monkey troops, baboon troops, vulture flocks, badger setts, bat colonies, alligator dens, triceratops herds, pterosaur flocks.
+
+### Reskinned Creatures
+The mammoth/elephant pattern — using one `monsterList` entry at different CRs or with different display names to represent related real-world animals:
+- `saberToothedTiger` → lion (CR 1–4), panther (CR 0.25–1), tiger (CR 1–3)
+- `ape` → gorilla (CR 2–7)
+- `horse` riding → zebra (warm plains/savanna)
+- `wolf` → hyena (CR 0.25–1), jackal (CR 0–0.25)
+- `boar` → warthog (warm climate)
+- `badger` → wolverine (CR 0.25–1, cold forests/tundra)
+- `baboon` → monkey (tropical forest)
+- `crocodile` → alligator (swamp)
+- `eagle` → vulture (CR 0–0.125)
+- `bat` → cave bats
+
+- `elephant` triceratops → triceratops (CR 1–7, forgotten biomes)
+- `trex` → tyrannosaurus rex (CR 6–10, forgotten biomes)
+- `quetzalcoatlus` → pterosaur (CR 2–5, forgotten biomes)
+
+### Forgotten Biomes
+Rare ancient pockets where civilization hasn't reached and prehistoric creatures survived. Spawn as rare children (min 0, max 1) of warm continents, oceans/archipelagos, and mountain ranges. Each contains a mix of dinosaurs (T-Rex, triceratops herds, pterosaur flocks) alongside regular fauna. Named with evocative adjectives: "The Forgotten Island", "The Primeval Valley", etc.
+
+### Name Generators
+`forestNameGenerator` (temperature-aware), `mountainNameGenerator`, `mountainRangeNameGenerator`, `plainsNameGenerator`, `swampNameGenerator`, `desertNameGenerator`, `savannaNameGenerator`, `forgottenBiomeNameGenerator` (type-aware), `caveNameGenerator`, `lakeNameGenerator`, `riverNameGenerator` — plus the original planar/continent generators.
 
 ## Conventions
 

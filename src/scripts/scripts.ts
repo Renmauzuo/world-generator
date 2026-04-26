@@ -26,7 +26,7 @@ $(function () {
     updateLoadList();
 
     // Start by creating a multiverse
-    createRootNode('tundra');
+    createRootNode('multiverse');
 
     $('body').on('click', 'details,p', function (e: Event) {
         e.stopPropagation();
