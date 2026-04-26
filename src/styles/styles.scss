@@ -51,24 +51,16 @@ h2 {
     z-index: 100;
 
     &.is-open {
-        display: block;
-    }
-
-    .statblock-modal-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .statblock-modal-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        position: relative;
         max-height: 90vh;
         overflow-y: auto;
 
-        // The stat-block is the visual container — position relative so the close button anchors to it
         .stat-block {
             position: relative;
             margin: 0;
@@ -78,8 +70,15 @@ h2 {
             position: absolute;
             top: 8px;
             right: 8px;
-            margin-bottom: 0;
             z-index: 1;
+            margin-bottom: 0;
+            cursor: pointer;
+            background: none;
+            border: 1px solid #922610;
+            color: #922610;
+            font-size: 16px;
+            line-height: 1;
+            padding: 2px 6px;
         }
     }
 }

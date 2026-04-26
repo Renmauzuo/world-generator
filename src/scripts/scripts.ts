@@ -4,7 +4,6 @@ import { attributeEditors, labels } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
 import { scaleMonster } from '@toolkit5e/monster-scaler';
-import type { MonsterID } from '@toolkit5e/monster-scaler';
 import { renderStatblock } from '@toolkit5e/statblock';
 
 let rootNode: WorldNode;
@@ -53,7 +52,7 @@ $(function () {
         if (!template.creature) return;
         const cr = String(selectedNode.attributes?.challengeRating ?? 1);
         try {
-            const statblock = scaleMonster(template.creature as MonsterID, cr, {
+            const statblock = scaleMonster(template.creature, cr, {
                 variant: template.variant
             });
             statblock.name = selectedNode.name || template.typeName;
@@ -67,7 +66,7 @@ $(function () {
         }
     });
 
-    $('#statblock-modal-close, .statblock-modal-backdrop').on('click', function () {
+    $('#statblock-modal-close').on('click', function () {
         $('#statblock-modal').removeClass('is-open');
     });
 
@@ -94,7 +93,9 @@ $(function () {
         confirmSaved();
         $('#generation-container').empty();
         createRootNode(($('#starting-node')[0] as HTMLInputElement).value);
-        $('#info-panel').empty();
+        $('#info-panel h2').empty();
+        $('#info-panel #fields').empty();
+        $('#name').attr('value', '');
         saved = true;
     });
 

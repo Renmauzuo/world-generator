@@ -1,3 +1,5 @@
+import type { MonsterID } from '@toolkit5e/monster-scaler';
+
 // Shared types for the world generator
 
 export interface WeightedRange {
@@ -37,7 +39,7 @@ export interface ObjectTypeTemplate {
   inheritAttributes?: string[];
   referenceBook?: string;
   referencePage?: number;
-  creature?: string;
+  creature?: MonsterID;
   variant?: string;
 }
 

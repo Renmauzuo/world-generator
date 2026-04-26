@@ -12,6 +12,7 @@ It is intended for public release eventually.
 - **Build**: Gulp 4 + Rollup (via `gulp-better-rollup`) + `rollup-plugin-typescript2`
 - **CSS**: Dart Sass (`sass` package) + PostCSS + cssnano
 - **Runtime**: jQuery (loaded from CDN), vanilla browser APIs
+- **Packages**: `@toolkit5e/monster-scaler` and `@toolkit5e/statblock` (consumed from npm as a normal dependency)
 - **Output**: `docs/` (GitHub Pages compatible)
 
 ### Build Commands
@@ -81,6 +82,7 @@ Child templates support:
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
 - **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
 - Many node types have `//TODO` children stubs (ocean geography, forest children, etc.)
+- **Full creature coverage** — long-term goal is for every creature in `@toolkit5e/monster-scaler`'s `monsterList` to have a path in the world generator's node hierarchy. The typed `creature` field (`MonsterID`) ensures only valid keys are used.
 
 ## Conventions
 

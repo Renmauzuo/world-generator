@@ -352,6 +352,15 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
 
     /*** Groups Begin ***/
     // Groups of creatures
+    elephantHerd: {
+        typeName: "Elephant Herd",
+        children: [
+            { type: 'elephantMatriarch', min: 1, max: 1 },
+            { type: 'elephantCow', min: 1, max: 4 },
+            { type: 'elephantJuvenile', min: 1, max: 4 },
+            { type: 'elephantCalf', min: 0, max: 2 }
+        ]
+    },
     mammothHerd: {
         typeName: "Mammoth Herd",
         children: [
@@ -370,6 +379,36 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Acolyte",
         referenceBook: book.monsterManual,
         referencePage: 342
+    },
+    elephantBull: {
+        typeName: "Elephant Bull",
+        creature: "elephant",
+        variant: "elephant",
+        attributes: { challengeRating: { min: 6, max: 8 } }
+    },
+    elephantMatriarch: {
+        typeName: "Elephant Matriarch",
+        creature: "elephant",
+        variant: "elephant",
+        attributes: { challengeRating: { min: 5, max: 7 } }
+    },
+    elephantCow: {
+        typeName: "Elephant Cow",
+        creature: "elephant",
+        variant: "elephant",
+        attributes: { challengeRating: { min: 3, max: 5 } }
+    },
+    elephantJuvenile: {
+        typeName: "Elephant Mammoth",
+        creature: "elephant",
+        variant: "elephant",
+        attributes: { challengeRating: { min: 1, max: 3 } }
+    },
+    elephantCalf: {
+        typeName: "Elephant Calf",
+        creature: "elephant",
+        variant: "elephant",
+        attributes: { challengeRating: { min: .5, max: .5 } }
     },
     mammothBull: {
         typeName: "Mammoth Bull",
