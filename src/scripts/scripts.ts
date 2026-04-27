@@ -3,7 +3,9 @@ import { objectTypes } from './data/objectTypes';
 import { attributeEditors, labels } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
-import { scaleMonster } from '@toolkit5e/monster-scaler';
+import { registerNode, clearRegistry, registerTree } from './nodeRegistry';
+import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
+import { stringForCR } from '@toolkit5e/base';
 import { renderStatblock } from '@toolkit5e/statblock';
 
 let rootNode: WorldNode;
@@ -49,11 +51,16 @@ $(function () {
     $('body').on('click', '.button-view-statblock', function (e: JQuery.Event) {
         e.stopPropagation();
         const template = objectTypes[selectedNode.type];
-        if (!template.creature) return;
+        // Dynamic creatures store creature/variant/legendary on the node's attributes
+        const creatureID = template.dynamicCreature ? selectedNode.attributes?.creature : template.creature;
+        const creatureVariant = template.dynamicCreature ? selectedNode.attributes?.variant : template.variant;
+        const creatureLegendary = template.dynamicCreature ? selectedNode.attributes?.legendary : template.legendary;
+        if (!creatureID) return;
         const cr = String(selectedNode.attributes?.challengeRating ?? 1);
         try {
-            const statblock = scaleMonster(template.creature, cr, {
-                variant: template.variant
+            const statblock = scaleMonster(creatureID, cr, {
+                variant: creatureVariant,
+                legendary: creatureLegendary
             });
             statblock.name = selectedNode.name || template.typeName;
             statblock.description = 'the ' + statblock.slug;
@@ -62,7 +69,7 @@ $(function () {
             renderStatblock(statblock, $body[0]);
             $('#statblock-modal').addClass('is-open');
         } catch (err) {
-            console.warn('Could not render statblock for', template.creature, err);
+            console.warn('Could not render statblock for', creatureID, err);
         }
     });
 
@@ -77,7 +84,7 @@ $(function () {
         }
     });
 
-    $('#info-panel').on('input', 'input,select', function () {
+    $('#info-panel').on('input change', 'input,select', function () {
         const attribute: string = $(this).attr('id');
         // If its name changed then update the associated DOM element
         if (attribute === 'name') {
@@ -89,8 +96,40 @@ $(function () {
             }
             selectedNode.name = $(this)[0].value;
         } else {
-            selectedNode.attributes![attribute] = $(this)[0].value;
+            // Parse numeric attribute values back to numbers (select elements return strings)
+            const rawValue = $(this)[0].value;
+            selectedNode.attributes![attribute] = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
         }
+
+        // When creature changes on a dynamic creature node, rebuild the variant dropdown
+        if (attribute === 'creature' && objectTypes[selectedNode.type].dynamicCreature) {
+            const newCreatureID = $(this)[0].value;
+            const creatureEntry = monsterList[newCreatureID as keyof typeof monsterList];
+            const variants = creatureEntry?.variants ? Object.keys(creatureEntry.variants) : [];
+
+            // Remove existing variant label, select, and line break
+            $('#info-panel .variant-label').next('select').next('br').remove();
+            $('#info-panel .variant-label').next('select').remove();
+            $('#info-panel .variant-label').remove();
+
+            // Reset variant on the node
+            selectedNode.attributes!.variant = '';
+
+            if (variants.length > 0) {
+                // Insert variant dropdown after the creature select's line break
+                const $creatureBreak = $('#info-panel #creature').next('br');
+                const $variantLabel = $('<label for="variant" class="variant-label">' + (labels['variant'] || 'Variant') + ': </label>');
+                $variantLabel.insertAfter($creatureBreak);
+                const $variantSelect = $('<select id="variant"></select>');
+                $('<option value="">None</option>').appendTo($variantSelect);
+                for (const v of variants) {
+                    $('<option></option>').attr('value', v).html(v).appendTo($variantSelect);
+                }
+                $variantSelect.insertAfter($variantLabel);
+                $('<br>').insertAfter($variantSelect);
+            }
+        }
+
         if (saved) {
             saved = false;
         }
@@ -156,17 +195,60 @@ function showInfoForNode(node: WorldNode): void {
     $('#name').attr('value', node.name || '');
     if (node.attributes) {
         for (const attribute in node.attributes) {
+            // Skip variant — it's rendered alongside creature
+            if (attribute === 'variant') continue;
+
             const $label = $('<label for="' + attribute + '">' + (labels[attribute] || capitalize(attribute)) + ': </label>');
             $label.appendTo($info);
             // If the template attribute is an array create a picklist
             let $input;
-            const templateAttribute = attributeEditors[attribute] || template.attributes![attribute];
+            const templateAttribute = attributeEditors[attribute] || template.attributes?.[attribute];
+
+            if (attribute === 'creature' && template.dynamicCreature) {
+                // Creature dropdown — list all monsterList keys sorted alphabetically
+                const creatureKeys = Object.keys(monsterList).sort();
+                $input = $('<select id="creature"></select>');
+                for (const key of creatureKeys) {
+                    const $option = $('<option></option>').attr('value', key).html(key);
+                    if (key === node.attributes[attribute]) {
+                        $option.attr('selected', 'selected');
+                    }
+                    $option.appendTo($input);
+                }
+                $input.insertAfter($label);
+                $('<br>').insertAfter($input);
+
+                // Variant dropdown — built from the selected creature's variants
+                const selectedCreature = node.attributes.creature;
+                const creatureEntry = monsterList[selectedCreature as keyof typeof monsterList];
+                const variants = creatureEntry?.variants ? Object.keys(creatureEntry.variants) : [];
+
+                if (variants.length > 0) {
+                    const $variantLabel = $('<label for="variant" class="variant-label">' + (labels['variant'] || 'Variant') + ': </label>');
+                    $variantLabel.appendTo($info);
+                    const $variantSelect = $('<select id="variant"></select>');
+                    $('<option value="">None</option>').appendTo($variantSelect);
+                    for (const v of variants) {
+                        const $option = $('<option></option>').attr('value', v).html(v);
+                        if (v === node.attributes.variant) {
+                            $option.attr('selected', 'selected');
+                        }
+                        $option.appendTo($variantSelect);
+                    }
+                    $variantSelect.insertAfter($variantLabel);
+                    $('<br>').insertAfter($variantSelect);
+                }
+                continue;
+            }
+
             if (Array.isArray(templateAttribute)) {
                 $input = $('<select id=' + attribute + '></select>');
                 for (const index in templateAttribute) {
-                    const $option = $('<option></option>').html(templateAttribute[index]).appendTo($input);
-                    // If this is the current value select it
-                    if (templateAttribute[index] === node.attributes[attribute]) {
+                    const value = templateAttribute[index];
+                    const displayText = attribute === 'challengeRating' ? stringForCR(value) : value;
+                    const $option = $('<option></option>').attr('value', value).html(displayText).appendTo($input);
+                    // If this is the current value select it (use == for numeric/string coercion)
+                    if (value == node.attributes[attribute]) {
                         $option.attr('selected', 'selected');
                     }
                 }
@@ -191,14 +273,21 @@ function showInfoForNode(node: WorldNode): void {
         $('<p>' + referenceText + '</p>').appendTo($info);
     }
 
-    // Build a link to the monster scaler for creatures, and a button to open the statblock modal
-    if (template.creature) {
-        let creatureLink = 'https://renmauzuo.github.io/monster-scaler/monsters.html?creature=' + template.creature;
-        if (template.variant) {
-            creatureLink += '&variant=' + template.variant;
+    // Build a link to the monster scaler for creatures, and a button to open the statblock modal.
+    // Dynamic creatures store creature/variant/legendary on the node's attributes instead of the template.
+    const creatureID = template.dynamicCreature ? node.attributes?.creature : template.creature;
+    const creatureVariant = template.dynamicCreature ? node.attributes?.variant : template.variant;
+    const creatureLegendary = template.dynamicCreature ? node.attributes?.legendary : template.legendary;
+    if (creatureID) {
+        let creatureLink = 'https://renmauzuo.github.io/monster-scaler/monsters.html?creature=' + creatureID;
+        if (creatureVariant) {
+            creatureLink += '&variant=' + creatureVariant;
         }
         if (node.attributes?.challengeRating) {
             creatureLink += '&target-cr=' + node.attributes.challengeRating;
+        }
+        if (creatureLegendary) {
+            creatureLink += '&legendary=' + creatureLegendary;
         }
         creatureLink += '&name=' + template.typeName;
         $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
@@ -209,6 +298,7 @@ function showInfoForNode(node: WorldNode): void {
 /* Node Generation Begin */
 
 function createRootNode(nodeType: string): void {
+    clearRegistry();
     rootNode = generateNode(nodeType);
     domObjectForNode(rootNode).appendTo('#generation-container');
 }
@@ -240,15 +330,25 @@ function generateNode(nodeType: string, parent?: WorldNode): WorldNode {
                     node.attributes[attribute] = typeAttributes[attribute](node);
                 } else if (typeof typeAttributes[attribute] === 'object') {
                     // If the attribute has a min and a max we randomly select from the range
-                    if (typeAttributes[attribute].min) {
+                    if (typeAttributes[attribute].min !== undefined) {
                         node.attributes[attribute] = rand(typeAttributes[attribute].min, typeAttributes[attribute].max);
                     }
+                } else {
+                    // Primitive values (string, number, boolean) are used as-is
+                    node.attributes[attribute] = typeAttributes[attribute];
                 }
             }
         }
     }
+    if (typeTemplate.customSetup) {
+        if (!node.attributes) node.attributes = {};
+        typeTemplate.customSetup(node);
+    }
     if (typeTemplate.nameGenerator) {
         node.name = typeTemplate.nameGenerator(node);
+    }
+    if (typeTemplate.registered) {
+        registerNode(node);
     }
     return node;
 }
@@ -258,39 +358,46 @@ function generateChildrenForNode(node: WorldNode): void {
     if (!node.children) {
         node.children = [];
     }
-    for (const index in objectTypes[node.type].children) {
-        const childTemplate = objectTypes[node.type].children![index];
-        // A child is valid if it has no conditions, or if any condition passes (OR logic)
-        let valid = true;
-        if (childTemplate.conditions && childTemplate.conditions.length > 0) {
-            valid = childTemplate.conditions.some(condition => {
-                const nodeValue = node.attributes?.[condition.attribute];
-                const shouldMatch = condition.match ?? true;
-                return shouldMatch ? nodeValue === condition.value : nodeValue !== condition.value;
-            });
-        }
-        if (valid) {
-            let numChildren: number;
-            if (childTemplate.weightedRange) {
-                numChildren = parseInt(weightedRand(childTemplate.weightedRange), 10);
-            } else {
-                numChildren = rand(childTemplate.min!, childTemplate.max!);
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        let childrenAdded = 0;
+        for (const index in objectTypes[node.type].children) {
+            const childTemplate = objectTypes[node.type].children![index];
+            // A child is valid if it has no conditions, or if any condition passes (OR logic)
+            let valid = true;
+            if (childTemplate.conditions && childTemplate.conditions.length > 0) {
+                valid = childTemplate.conditions.some(condition => {
+                    const nodeValue = node.attributes?.[condition.attribute];
+                    const shouldMatch = condition.match ?? true;
+                    return shouldMatch ? nodeValue === condition.value : nodeValue !== condition.value;
+                });
             }
-            for (let i = 0; i < numChildren; i++) {
-                let childType: string;
-                if (typeof childTemplate.type === "object") {
-                    childType = weightedRand(childTemplate.type as Record<string, number>);
+            if (valid) {
+                let numChildren: number;
+                if (childTemplate.weightedRange) {
+                    numChildren = parseInt(weightedRand(childTemplate.weightedRange), 10);
                 } else {
-                    childType = childTemplate.type;
+                    numChildren = rand(childTemplate.min!, childTemplate.max!);
                 }
-                addChildToNode(childType, node);
-                if (childTemplate.requiredSibling) {
-                    addChildToNode(childTemplate.requiredSibling, node);
+                for (let i = 0; i < numChildren; i++) {
+                    let childType: string;
+                    if (typeof childTemplate.type === "object") {
+                        childType = weightedRand(childTemplate.type as Record<string, number>);
+                    } else {
+                        childType = childTemplate.type;
+                    }
+                    addChildToNode(childType, node);
+                    if (childTemplate.requiredSibling) {
+                        addChildToNode(childTemplate.requiredSibling, node);
+                    }
+                    childrenAdded++;
                 }
+                // Reset queued name so it doesn't impact cousins or more distant nodes
+                setQueuedName(null);
             }
-            // Reset queued name so it doesn't impact cousins or more distant nodes
-            setQueuedName(null);
         }
+        // If at least one child was generated, we're done. Otherwise retry.
+        if (childrenAdded > 0) break;
     }
     saved = false;
 }
@@ -399,8 +506,16 @@ function updateLoadList(): void {
 /** Parses a JSON string and also creates associated DOM objects and populates the generation container.
  *  Called when loading or importing. */
 function createWorldFromJSON(worldJSON: string): void {
+    clearRegistry();
     $('#generation-container').empty();
     rootNode = JSON.parse(worldJSON);
+    recursivePostParseProcess(rootNode);
+    // Build the set of registered types and re-register all matching nodes
+    const registeredTypes = new Set<string>();
+    for (const type in objectTypes) {
+        if (objectTypes[type].registered) registeredTypes.add(type);
+    }
+    registerTree(rootNode, registeredTypes);
     $('#generation-container').append(recursiveGenerateDOMElement(rootNode));
     showInfoForNode(rootNode);
 }

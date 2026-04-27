@@ -60,3 +60,26 @@ export function spacesFromCamelCase(string: string): string {
 export function arrayWithMixed(array: string[]): string[] {
     return ["Mixed"].concat(array);
 }
+
+/**
+ * Collects all tags from a node's ancestor chain by walking up the parent references.
+ * Returns a Set of unique tag strings gathered from each ancestor's ObjectTypeTemplate.
+ * Requires objectTypes to be passed in to avoid circular imports.
+ */
+export function collectAncestorTags(
+    node: WorldNode,
+    typeMap: Record<string, ObjectTypeTemplate>
+): Set<string> {
+    const tags = new Set<string>();
+    let current: WorldNode | undefined = node;
+    while (current) {
+        const template = typeMap[current.type];
+        if (template?.tags) {
+            for (const tag of template.tags) {
+                tags.add(tag);
+            }
+        }
+        current = current.parent;
+    }
+    return tags;
+}

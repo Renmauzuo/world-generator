@@ -1,7 +1,8 @@
 import type { ObjectTypeTemplate } from '../types';
-import { populationDensity, temperatureList, book } from './constants';
-import { arrayWithMixed } from '../helpers';
-import { categoryAttributes } from '../attributeGenerators';
+import { populationDensity, temperatureList, book, alignmentList, elementList } from './constants';
+import { arrayWithMixed, collectAncestorTags } from '../helpers';
+import { categoryAttributes, deitySetup, avatarSetup } from '../attributeGenerators';
+import { getRegisteredNodes } from '../nodeRegistry';
 import {
     planarClusterNameGenerator,
     planarNameGenerator,
@@ -17,7 +18,12 @@ import {
     lakeNameGenerator,
     riverNameGenerator,
     savannaNameGenerator,
-    forgottenBiomeNameGenerator
+    forgottenBiomeNameGenerator,
+    dragonNameGenerator,
+    extraplanarNameGenerator,
+    feyNameGenerator,
+    deityNameGenerator,
+    avatarNameGenerator
 } from '../nameGenerators';
 export const objectTypes: Record<string, ObjectTypeTemplate> = {
     // Multiverse is the ultimate root object
@@ -88,15 +94,73 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 min: 0,
                 max: 1,
                 conditions: [{ attribute: 'element', value: 'Fire' }]
+            },
+            {
+                type: "ashField",
+                min: 0,
+                max: 1,
+                conditions: [{ attribute: 'element', value: 'Fire' }]
+            },
+            {
+                type: "crystalCavern",
+                min: 0,
+                max: 1,
+                conditions: [{ attribute: 'element', value: 'Earth' }]
+            },
+            {
+                type: "cloudIsland",
+                min: 0,
+                max: 1,
+                conditions: [{ attribute: 'element', value: 'Air' }]
+            },
+            {
+                type: "radiantGrove",
+                min: 0,
+                max: 1,
+                conditions: [{ attribute: 'element', value: 'Positive Energy' }]
+            },
+            {
+                type: "necropolis",
+                min: 0,
+                max: 1,
+                conditions: [{ attribute: 'element', value: 'Negative Energy' }]
             }
-            //TODO: More demiplane geography
         ]
     },
     planarLayer: {
         typeName: "Planar Layer",
         categories: ['plane'],
-        inheritAttributes: ["alignment", "element"]
-        //TODO: Planar layer geography
+        nameGenerator: planarNameGenerator,
+        inheritAttributes: ["alignment", "element"],
+        children: [
+            // Fire plane geography
+            { type: 'lavaLake', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Fire' }] },
+            { type: 'ashField', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Fire' }] },
+            // Water plane geography
+            { type: 'abyssalDepth', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Water' }] },
+            { type: 'coralPalace', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Water' }] },
+            // Earth plane geography
+            { type: 'crystalCavern', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Earth' }] },
+            { type: 'stoneForest', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Earth' }] },
+            // Air plane geography
+            { type: 'cloudIsland', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Air' }] },
+            { type: 'stormFront', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Air' }] },
+            // Positive energy geography
+            { type: 'radiantGrove', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Positive Energy' }] },
+            { type: 'lifeSpring', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Positive Energy' }] },
+            // Negative energy geography
+            { type: 'necropolis', min: 0, max: 3, conditions: [{ attribute: 'element', value: 'Negative Energy' }] },
+            { type: 'boneWaste', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'Negative Energy' }] },
+            // Non-elemental planes get generic fantastical geography
+            { type: 'chaosWaste', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'None' }] },
+            { type: 'etherealMeadow', min: 0, max: 2, conditions: [{ attribute: 'element', value: 'None' }] },
+            // Alignment-based geography
+            { type: 'infernalCitadel', min: 0, max: 2, conditions: [{ attribute: 'alignment', value: 'Lawful Evil' }, { attribute: 'alignment', value: 'Neutral Evil' }, { attribute: 'alignment', value: 'Chaotic Evil' }] },
+            { type: 'celestialSpire', min: 0, max: 2, conditions: [{ attribute: 'alignment', value: 'Lawful Good' }, { attribute: 'alignment', value: 'Neutral Good' }, { attribute: 'alignment', value: 'Chaotic Good' }] },
+            { type: 'abyssalFortress', min: 0, max: 2, conditions: [{ attribute: 'alignment', value: 'Chaotic Evil' }] },
+            // Divine realms — at most one per layer
+            { type: 'divineRealm', min: 0, max: 1 },
+        ]
     },
 
     /*** Continents Begin ***/
@@ -186,6 +250,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     ocean: {
         typeName: "Ocean",
+        tags: ['water'],
         categories: ["geography"],
         children: [
             { type: 'archipelago', min: 0, max: 3 },
@@ -226,31 +291,282 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     openOcean: {
         typeName: 'Open Ocean',
+        tags: ['water'],
         children: [
             { type: 'sharkPack', min: 0, max: 3 },
             { type: 'whalePod', min: 0, max: 2 },
-            { type: 'shipwreck', min: 0, max: 2 }
+            { type: 'shipwreck', min: 0, max: 2 },
+            { type: 'squidShoal', min: 0, max: 2 },
+            { type: 'megalodon', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     abyssalTrench: {
         typeName: 'Abyssal Trench',
+        tags: ['water', 'underground'],
         children: [
-            { type: 'shipwreck', min: 0, max: 1 }
+            { type: 'shipwreck', min: 0, max: 1 },
+            { type: 'krakenLair', min: 0, max: 1 }
         ]
     },
     lavaLake: {
         typeName: "Lava Lake",
+        tags: ['fire'],
         children: [
-            { type: 'fireElementalSolitary', min: 0, max: 3 }
+            { type: 'fireElementalSolitary', min: 0, max: 3 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
+    ashField: {
+        typeName: "Ash Field",
+        tags: ['fire'],
+        children: [
+            { type: 'fireElementalSolitary', min: 0, max: 2 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    abyssalDepth: {
+        typeName: "Abyssal Depth",
+        tags: ['water'],
+        children: [
+            { type: 'waterElementalSolitary', min: 0, max: 3 },
+            { type: 'sharkPack', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    coralPalace: {
+        typeName: "Coral Palace",
+        tags: ['water'],
+        children: [
+            { type: 'waterElementalSolitary', min: 0, max: 2 },
+            { type: 'octopusDen', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    crystalCavern: {
+        typeName: "Crystal Cavern",
+        tags: ['earth', 'underground'],
+        children: [
+            { type: 'earthElementalSolitary', min: 0, max: 3 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    stoneForest: {
+        typeName: "Stone Forest",
+        tags: ['earth'],
+        children: [
+            { type: 'earthElementalSolitary', min: 0, max: 2 },
+            { type: 'giantSpiderLair', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    cloudIsland: {
+        typeName: "Cloud Island",
+        tags: ['air'],
+        children: [
+            { type: 'airElementalSolitary', min: 0, max: 3 },
+            { type: 'eagleNest', min: 0, max: 2 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    stormFront: {
+        typeName: "Storm Front",
+        tags: ['air'],
+        children: [
+            { type: 'airElementalSolitary', min: 0, max: 2 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    radiantGrove: {
+        typeName: "Radiant Grove",
+        tags: ['forest'],
+        children: [
+            { type: 'dryadGrove', min: 0, max: 2 },
+            { type: 'awakenedTreeCopse', min: 0, max: 2 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    lifeSpring: {
+        typeName: "Life Spring",
+        tags: ['water'],
+        children: [
+            { type: 'naiadSpring', min: 0, max: 1 },
+            { type: 'dryadGrove', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    necropolis: {
+        typeName: "Necropolis",
+        tags: ['undead'],
+        children: [
+            { type: 'shadowHaunt', min: 1, max: 3 },
+            { type: 'skeletonCrypt', min: 0, max: 2 },
+            { type: 'zombieHorde', min: 0, max: 2 },
+            { type: 'ghoulPack', min: 0, max: 1 },
+            { type: 'wightSolitary', min: 0, max: 1 },
+            { type: 'wraithSolitary', min: 0, max: 1 },
+            { type: 'cryptLord', min: 0, max: 1 },
+            { type: 'dreadWraith', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    boneWaste: {
+        typeName: "Bone Waste",
+        tags: ['undead'],
+        children: [
+            { type: 'shadowHaunt', min: 0, max: 2 },
+            { type: 'skeletonCrypt', min: 0, max: 1 },
+            { type: 'zombieHorde', min: 0, max: 1 },
+            { type: 'specterSolitary', min: 0, max: 2 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    chaosWaste: {
+        typeName: "Chaos Waste",
+        children: [
+            { type: 'fireElementalSolitary', min: 0, max: 1 },
+            { type: 'airElementalSolitary', min: 0, max: 1 },
+            { type: 'earthElementalSolitary', min: 0, max: 1 },
+            { type: 'waterElementalSolitary', min: 0, max: 1 },
+            { type: 'demonHorde', min: 0, max: 2 },
+            { type: 'demonWarband', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    etherealMeadow: {
+        typeName: "Ethereal Meadow",
+        children: [
+            { type: 'dryadGrove', min: 0, max: 1 },
+            { type: 'awakenedTreeCopse', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    infernalCitadel: {
+        typeName: "Infernal Citadel",
+        tags: ['evil'],
+        children: [
+            { type: 'devilPatrol', min: 1, max: 3 },
+            { type: 'devilLegion', min: 0, max: 1 },
+            { type: 'erinyesSolitary', min: 0, max: 1 },
+            { type: 'pitFiendSolitary', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    abyssalFortress: {
+        typeName: "Abyssal Fortress",
+        tags: ['evil'],
+        children: [
+            { type: 'demonHorde', min: 1, max: 3 },
+            { type: 'demonWarband', min: 0, max: 2 },
+            { type: 'marilithSolitary', min: 0, max: 1 },
+            { type: 'balorSolitary', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+    celestialSpire: {
+        typeName: "Celestial Spire",
+        tags: ['good'],
+        children: [
+            { type: 'angelSolitary', min: 1, max: 3 },
+            { type: 'solarAngel', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
+        ]
+    },
+
+    // Divine Realms — the seat of a deity's power, spawns on planar layers (max 1 per layer)
+    divineRealm: {
+        typeName: "Divine Realm",
+        nameGenerator: planarNameGenerator,
+        inheritAttributes: ["alignment", "element"],
+        attributes: {
+            alignment: alignmentList,
+            element: elementList
+        },
+        children: [
+            { type: 'greaterDeity', min: 0, max: 1 },
+            { type: 'lesserDeity', min: 0, max: 2 },
+            { type: 'demigod', min: 0, max: 3 },
+            // Attendant creatures based on alignment
+            { type: 'angelSolitary', min: 0, max: 2, conditions: [{ attribute: 'alignment', value: 'Lawful Good' }, { attribute: 'alignment', value: 'Neutral Good' }, { attribute: 'alignment', value: 'Chaotic Good' }] },
+            { type: 'devilPatrol', min: 0, max: 1, conditions: [{ attribute: 'alignment', value: 'Lawful Evil' }, { attribute: 'alignment', value: 'Neutral Evil' }] },
+            { type: 'demonHorde', min: 0, max: 1, conditions: [{ attribute: 'alignment', value: 'Chaotic Evil' }] },
+        ]
+    },
+
+    // Deity tiers — dynamicCreature means creature/variant/legendary are resolved from node attributes.
+    // customSetup handles domain selection, creature selection, and all derived attributes.
+    greaterDeity: {
+        typeName: "Greater Deity",
+        nameGenerator: deityNameGenerator,
+        dynamicCreature: true,
+        registered: true,
+        inheritAttributes: ["alignment", "element"],
+        attributes: {
+            alignment: 'Lawful Good',
+            element: 'None',
+            challengeRating: { min: 26, max: 30 },
+        },
+        customSetup: (node) => deitySetup(node, 5),
+        children: [
+            { type: 'lesserDeity', min: 0, max: 2 },
+            { type: 'demigod', min: 0, max: 3 },
+        ]
+    },
+    lesserDeity: {
+        typeName: "Lesser Deity",
+        nameGenerator: deityNameGenerator,
+        dynamicCreature: true,
+        registered: true,
+        inheritAttributes: ["alignment", "element"],
+        attributes: {
+            alignment: 'Lawful Good',
+            element: 'None',
+            challengeRating: { min: 22, max: 26 },
+        },
+        customSetup: (node) => deitySetup(node, 5),
+        children: [
+            { type: 'demigod', min: 0, max: 2 },
+        ]
+    },
+    demigod: {
+        typeName: "Demigod",
+        nameGenerator: deityNameGenerator,
+        dynamicCreature: true,
+        registered: true,
+        inheritAttributes: ["alignment", "element"],
+        attributes: {
+            alignment: 'Lawful Good',
+            element: 'None',
+            challengeRating: { min: 20, max: 24 },
+        },
+        customSetup: (node) => deitySetup(node, 3),
+    },
+
+    // Avatars — manifestations of deities outside their home plane
+    avatar: {
+        typeName: "Avatar",
+        nameGenerator: avatarNameGenerator,
+        dynamicCreature: true,
+        inheritAttributes: ["alignment", "element"],
+        attributes: {
+            alignment: 'Lawful Good',
+            element: 'None',
+            challengeRating: { min: 15, max: 22 },
+        },
+        customSetup: (node) => avatarSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod'), collectAncestorTags(node, objectTypes)),
+    },
+
     sea: {
         typeName: 'Sea',
+        tags: ['water'],
         children: [
             { type: 'island', min: 0, max: 3 },
             { type: 'reef', min: 0, max: 3, conditions: [{ attribute: 'temperature', value: 'Warm' }] },
             { type: 'sharkPack', min: 0, max: 2 },
-            { type: 'shipwreck', min: 0, max: 2 }
+            { type: 'shipwreck', min: 0, max: 2 },
+            { type: 'octopusDen', min: 0, max: 1 },
+            { type: 'squidShoal', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
             temperature: arrayWithMixed(temperatureList)
@@ -259,16 +575,22 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     tundra: {
         typeName: 'Tundra',
+        tags: ['cold'],
         children: [
             { type: 'mammothBull', min: 2, max: 5 },
             { type: 'mammothHerd', min: 1, max: 3 },
             { type: 'wolfPack', min: 0, max: 3 },
             { type: 'bearSolitary', min: 0, max: 2 },
-            { type: 'wolverineSolitary', min: 0, max: 2 }
+            { type: 'wolverineSolitary', min: 0, max: 2 },
+            { type: 'elkHerd', min: 0, max: 2 },
+            { type: 'dreadWolf', min: 0, max: 1 },
+            { type: 'dragonLairWhite', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     rainforest: {
         typeName: "Rainforest",
+        tags: ['forest'],
         nameGenerator: forestNameGenerator,
         children: [
             { type: 'forestClearing', min: 1, max: 4 },
@@ -282,7 +604,12 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'tigerSolitary', min: 0, max: 1 },
             { type: 'dryadGrove', min: 0, max: 1 },
             { type: 'awakenedTreeCopse', min: 0, max: 1 },
-            { type: 'crocodileDen', min: 0, max: 1 }
+            { type: 'crocodileDen', min: 0, max: 1 },
+            { type: 'constrictorSnakeNest', min: 0, max: 2 },
+            { type: 'owlNest', min: 0, max: 1 },
+            { type: 'poisonousSnakeNest', min: 0, max: 2 },
+            { type: 'giantWaspNest', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
             temperature: ['Warm']
@@ -291,6 +618,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     deciduousForest: {
         typeName: "Deciduous Forest",
+        tags: ['forest'],
         nameGenerator: forestNameGenerator,
         children: [
             { type: 'forestClearing', min: 1, max: 4 },
@@ -303,7 +631,13 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'badgerSett', min: 0, max: 2 },
             { type: 'dryadGrove', min: 0, max: 1 },
             { type: 'awakenedTreeCopse', min: 0, max: 1 },
-            { type: 'eagleNest', min: 0, max: 2 }
+            { type: 'eagleNest', min: 0, max: 2 },
+            { type: 'elkHerd', min: 0, max: 2 },
+            { type: 'owlNest', min: 0, max: 2 },
+            { type: 'giantWaspNest', min: 0, max: 1 },
+            { type: 'direBoar', min: 0, max: 1 },
+            { type: 'dragonLairGreen', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
             temperature: ['Temperate']
@@ -312,6 +646,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     coniferousForest: {
         typeName: 'Coniferous Forest',
+        tags: ['forest', 'cold'],
         nameGenerator: forestNameGenerator,
         children: [
             { type: 'forestClearing', min: 1, max: 3 },
@@ -321,7 +656,12 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'boarSounder', min: 0, max: 2 },
             { type: 'wolverineSolitary', min: 0, max: 2 },
             { type: 'spiderNest', min: 0, max: 1 },
-            { type: 'eagleNest', min: 0, max: 2 }
+            { type: 'eagleNest', min: 0, max: 2 },
+            { type: 'elkHerd', min: 0, max: 3 },
+            { type: 'owlNest', min: 0, max: 2 },
+            { type: 'worgPack', min: 0, max: 1 },
+            { type: 'dreadWolf', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
             temperature: arrayWithMixed(['Cold', 'Temperate'])
@@ -330,6 +670,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     plains: {
         typeName: "Plains",
+        tags: ['plains'],
         categories: ['geography'],
         nameGenerator: plainsNameGenerator,
         children: [
@@ -337,6 +678,8 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'boarSounder', min: 0, max: 2 },
             { type: 'wolfPack', min: 0, max: 2 },
             { type: 'eagleNest', min: 0, max: 3 },
+            { type: 'elkHerd', min: 0, max: 2 },
+            { type: 'hawkAdult', min: 0, max: 2 },
             {
                 type: { plainsTownSmall: 30, plainsVillage: 30, plainsHamlet: 25, plainsThorp: 15 },
                 min: 0,
@@ -354,11 +697,13 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 min: 2,
                 max: 4,
                 conditions: [{ attribute: 'populationDensity', value: populationDensity.high }]
-            }
+            },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     hills: {
         typeName: "Hills",
+        tags: ['hills'],
         categories: ['geography'],
         children: [
             { type: 'cave', min: 0, max: 3 },
@@ -367,11 +712,17 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'eagleNest', min: 0, max: 2 },
             { type: 'boarSounder', min: 0, max: 2 },
             { type: 'badgerSett', min: 0, max: 2 },
-            { type: 'pantherSolitary', min: 0, max: 1 }
+            { type: 'pantherSolitary', min: 0, max: 1 },
+            { type: 'goatHerd', min: 0, max: 2 },
+            { type: 'hawkAdult', min: 0, max: 2 },
+            { type: 'direBoar', min: 0, max: 1 },
+            { type: 'dragonLairCopper', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     swamp: {
         typeName: "Swamp",
+        tags: ['swamp'],
         categories: ['geography'],
         nameGenerator: swampNameGenerator,
         children: [
@@ -379,20 +730,30 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'alligatorDen', min: 0, max: 2 },
             { type: 'spiderNest', min: 0, max: 2 },
             { type: 'shadowHaunt', min: 0, max: 1 },
-            { type: 'awakenedTreeCopse', min: 0, max: 1 }
+            { type: 'awakenedTreeCopse', min: 0, max: 1 },
+            { type: 'constrictorSnakeNest', min: 0, max: 2 },
+            { type: 'giantToadDen', min: 0, max: 2 },
+            { type: 'dragonLairBlack', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     desert: {
         typeName: "Desert",
+        tags: ['desert'],
         nameGenerator: desertNameGenerator,
         children: [
             { type: 'camelCaravan', min: 0, max: 2 },
             { type: 'giantSpiderLair', min: 0, max: 2 },
-            { type: 'scorpionNest', min: 0, max: 2 }
+            { type: 'scorpionNest', min: 0, max: 2 },
+            { type: 'poisonousSnakeNest', min: 0, max: 2 },
+            { type: 'dragonLairBlue', min: 0, max: 1 },
+            { type: 'dragonLairBrass', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     savanna: {
         typeName: "Savanna",
+        tags: ['plains'],
         categories: ['geography'],
         nameGenerator: savannaNameGenerator,
         children: [
@@ -400,19 +761,24 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'hyenaPack', min: 0, max: 3 },
             { type: 'zebraHerd', min: 0, max: 4 },
             { type: 'elephantHerd', min: 0, max: 2 },
+            { type: 'rhinoCrash', min: 0, max: 2 },
             { type: 'gorillaTroop', min: 0, max: 1 },
             { type: 'warthogSounder', min: 0, max: 2 },
             { type: 'vultureFlock', min: 0, max: 2 },
             { type: 'baboonTroop', min: 0, max: 2 },
-            { type: 'jackalPack', min: 0, max: 2 }
+            { type: 'jackalPack', min: 0, max: 2 },
+            { type: 'poisonousSnakeNest', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     lake: {
         typeName: "Lake",
+        tags: ['water'],
         nameGenerator: lakeNameGenerator,
         children: [
             { type: 'naiadSpring', min: 0, max: 1 },
-            { type: 'crocodileDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] }
+            { type: 'crocodileDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] },
+            { type: 'giantToadDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] }
         ],
         attributes: {
             temperature: temperatureList
@@ -421,10 +787,13 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     river: {
         typeName: "River",
+        tags: ['water'],
         nameGenerator: riverNameGenerator,
         children: [
             { type: 'crocodileDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] },
-            { type: 'naiadSpring', min: 0, max: 1 }
+            { type: 'naiadSpring', min: 0, max: 1 },
+            { type: 'constrictorSnakeNest', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] },
+            { type: 'giantToadDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] }
         ],
         attributes: {
             temperature: temperatureList
@@ -433,6 +802,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     coast: {
         typeName: "Coast",
+        tags: ['water'],
         categories: ['geography'],
         children: [
             { type: 'beach', min: 1, max: 3 },
@@ -455,17 +825,24 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
                 min: 2,
                 max: 4,
                 conditions: [{ attribute: 'populationDensity', value: populationDensity.high }]
-            }
+            },
+            { type: 'dragonLairGold', min: 0, max: 1 },
+            { type: 'dragonLairBronze', min: 0, max: 1 }
         ]
     },
     mountainRange: {
         typeName: "Mountain Range",
+        tags: ['mountain'],
         nameGenerator: mountainRangeNameGenerator,
         children: [
             { type: 'mountain', min: 5, max: 20 },
             { type: 'mountainPass', min: 0, max: 3 },
             { type: 'cave', min: 0, max: 3 },
-            { type: 'forgottenValley', min: 0, max: 1 }
+            { type: 'forgottenValley', min: 0, max: 1 },
+            { type: 'dragonLairRed', min: 0, max: 1 },
+            { type: 'dragonLairWhite', min: 0, max: 1 },
+            { type: 'dragonLairSilver', min: 0, max: 1 },
+            { type: 'avatar', min: 0, max: 1 }
         ]
     },
     /*** Regions End ***/
@@ -483,11 +860,13 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'gorillaTroop', min: 0, max: 1 },
             { type: 'giantSpiderLair', min: 0, max: 2 },
             { type: 'beach', min: 1, max: 2 },
-            { type: 'cave', min: 0, max: 2 }
+            { type: 'cave', min: 0, max: 2 },
+            { type: 'plesiosaurusAdult', min: 0, max: 2 }
         ]
     },
     forgottenForest: {
         typeName: "Forgotten Forest",
+        tags: ['forest'],
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 2 },
@@ -497,7 +876,8 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'gorillaTroop', min: 0, max: 1 },
             { type: 'spiderNest', min: 0, max: 2 },
             { type: 'boarSounder', min: 0, max: 2 },
-            { type: 'awakenedTreeCopse', min: 0, max: 1 }
+            { type: 'awakenedTreeCopse', min: 0, max: 1 },
+            { type: 'broodmother', min: 0, max: 1 }
         ]
     },
     forgottenValley: {
@@ -556,6 +936,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     mountainPass: {
         typeName: "Mountain Pass",
+        tags: ['mountain'],
         children: [
             { type: 'wolfPack', min: 0, max: 1 },
             { type: 'bearSolitary', min: 0, max: 1 }
@@ -563,10 +944,11 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     cave: {
         typeName: "Cave",
+        tags: ['underground'],
         nameGenerator: caveNameGenerator,
         children: [
             {
-                type: { bearDen: 35, spiderNest: 25, wolfDen: 15, batColony: 15, shadowHaunt: 10 },
+                type: { bearDen: 30, spiderNest: 20, wolfDen: 15, batColony: 15, ratWarren: 10, shadowHaunt: 10 },
                 min: 0,
                 max: 1
             }
@@ -678,18 +1060,22 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     // Points of interest found within a locality
     reef: {
         typeName: 'Reef',
+        tags: ['water'],
         children: [
-            { type: 'sharkPack', min: 0, max: 1 }
+            { type: 'sharkPack', min: 0, max: 1 },
+            { type: 'octopusDen', min: 0, max: 2 }
         ]
     },
     lagoon: {
         typeName: 'Lagoon',
+        tags: ['water'],
         children: [
             { type: 'crocodileSolitary', min: 0, max: 2 }
         ]
     },
     beach: {
         typeName: 'Beach',
+        tags: ['water'],
         children: [
             { type: 'crocodileSolitary', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] }
         ],
@@ -707,12 +1093,16 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     mountain: {
         typeName: 'Mountain',
+        tags: ['mountain'],
         nameGenerator: mountainNameGenerator,
         children: [
             { type: 'cave', min: 0, max: 2 },
             { type: 'eagleNest', min: 0, max: 3 },
             { type: 'apeTroop', min: 0, max: 1 },
-            { type: 'bearSolitary', min: 0, max: 1 }
+            { type: 'bearSolitary', min: 0, max: 1 },
+            { type: 'goatHerd', min: 0, max: 2 },
+            { type: 'owlNest', min: 0, max: 1 },
+            { type: 'thunderbird', min: 0, max: 1 }
         ]
     },
     /*** Points of Interest End ***/
@@ -761,6 +1151,18 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Shark Pack",
         children: [
             { type: 'sharkAdult', min: 2, max: 5 }
+        ]
+    },
+    squidShoal: {
+        typeName: "Squid Shoal",
+        children: [
+            { type: 'squidAdult', min: 2, max: 6 }
+        ]
+    },
+    worgPack: {
+        typeName: "Worg Pack",
+        children: [
+            { type: 'worgAdult', min: 2, max: 5 }
         ]
     },
     whalePod: {
@@ -816,6 +1218,59 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'shadowCreature', min: 2, max: 6 }
         ]
     },
+    skeletonCrypt: {
+        typeName: "Skeleton Crypt",
+        children: [
+            { type: 'skeletonSolitary', min: 3, max: 8 }
+        ]
+    },
+    zombieHorde: {
+        typeName: "Zombie Horde",
+        children: [
+            { type: 'zombieSolitary', min: 2, max: 6 }
+        ]
+    },
+    ghoulPack: {
+        typeName: "Ghoul Pack",
+        children: [
+            { type: 'ghoulSolitary', min: 2, max: 4 }
+        ]
+    },
+    demonHorde: {
+        typeName: "Demon Horde",
+        children: [
+            { type: 'dretchSolitary', min: 3, max: 8 },
+            { type: 'quasitSolitary', min: 0, max: 2 },
+            { type: 'vrockSolitary', min: 0, max: 1 }
+        ]
+    },
+    demonWarband: {
+        typeName: "Demon Warband",
+        children: [
+            { type: 'vrockSolitary', min: 1, max: 3 },
+            { type: 'hezrouSolitary', min: 0, max: 2 },
+            { type: 'glabrezuSolitary', min: 0, max: 1 },
+            { type: 'nalfeshneeSolitary', min: 0, max: 1 }
+        ]
+    },
+    devilPatrol: {
+        typeName: "Devil Patrol",
+        children: [
+            { type: 'lemureSolitary', min: 2, max: 5 },
+            { type: 'impSolitary', min: 0, max: 2 },
+            { type: 'beardedDevilSolitary', min: 0, max: 1 }
+        ]
+    },
+    devilLegion: {
+        typeName: "Devil Legion",
+        children: [
+            { type: 'beardedDevilSolitary', min: 1, max: 3 },
+            { type: 'barbedDevilSolitary', min: 0, max: 2 },
+            { type: 'chainDevilSolitary', min: 0, max: 1 },
+            { type: 'boneDevilSolitary', min: 0, max: 1 },
+            { type: 'hornedDevilSolitary', min: 0, max: 1 }
+        ]
+    },
     camelCaravan: {
         typeName: "Camel Caravan",
         children: [
@@ -825,7 +1280,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     scorpionNest: {
         typeName: "Scorpion Nest",
         children: [
-            { type: 'giantSpiderAdult', min: 1, max: 3 }
+            { type: 'giantScorpionAdult', min: 1, max: 3 }
         ]
     },
     giantSpiderLair: {
@@ -852,7 +1307,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     pantherSolitary: {
         typeName: "Panther",
         creature: "saberToothedTiger",
-        attributes: { challengeRating: { min: .25, max: 1 } }
+        attributes: { challengeRating: [.25, .5, 1] }
     },
     hyenaPack: {
         typeName: "Hyena Pack",
@@ -925,6 +1380,30 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'alligatorAdult', min: 1, max: 4 }
         ]
     },
+    constrictorSnakeNest: {
+        typeName: "Snake Nest",
+        children: [
+            { type: 'constrictorSnakeAdult', min: 1, max: 4 }
+        ]
+    },
+    poisonousSnakeNest: {
+        typeName: "Viper Nest",
+        children: [
+            { type: 'poisonousSnakeAdult', min: 1, max: 4 }
+        ]
+    },
+    giantToadDen: {
+        typeName: "Toad Den",
+        children: [
+            { type: 'giantToadAdult', min: 1, max: 3 }
+        ]
+    },
+    giantWaspNest: {
+        typeName: "Wasp Nest",
+        children: [
+            { type: 'giantWaspAdult', min: 2, max: 6 }
+        ]
+    },
     // Dinosaur groups
     triceratopsHerd: {
         typeName: "Triceratops Herd",
@@ -948,6 +1427,20 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'elephantCalf', min: 0, max: 2 }
         ]
     },
+    elkHerd: {
+        typeName: "Elk Herd",
+        children: [
+            { type: 'elkBull', min: 1, max: 2 },
+            { type: 'elkCow', min: 2, max: 6 },
+            { type: 'elkCalf', min: 0, max: 3 }
+        ]
+    },
+    goatHerd: {
+        typeName: "Mountain Goat Herd",
+        children: [
+            { type: 'goatAdult', min: 3, max: 8 }
+        ]
+    },
     mammothHerd: {
         typeName: "Mammoth Herd",
         children: [
@@ -955,6 +1448,31 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'mammothCow', min: 1, max: 4 },
             { type: 'mammothJuvenile', min: 1, max: 4 },
             { type: 'mammothCalf', min: 0, max: 2 }
+        ]
+    },
+    octopusDen: {
+        typeName: "Octopus Den",
+        children: [
+            { type: 'octopusAdult', min: 1, max: 3 }
+        ]
+    },
+    owlNest: {
+        typeName: "Owl Nest",
+        children: [
+            { type: 'owlAdult', min: 1, max: 2 },
+            { type: 'owlet', min: 0, max: 3 }
+        ]
+    },
+    rhinoCrash: {
+        typeName: "Rhinoceros Crash",
+        children: [
+            { type: 'rhinoAdult', min: 1, max: 4 }
+        ]
+    },
+    ratWarren: {
+        typeName: "Rat Warren",
+        children: [
+            { type: 'ratAdult', min: 3, max: 10 }
         ]
     },
     /*** Groups End ***/
@@ -978,46 +1496,49 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     wolfAlpha: {
         typeName: "Alpha Wolf",
         creature: "wolf",
+        variant: "wolf",
         attributes: { challengeRating: { min: 1, max: 3 } }
     },
     wolf: {
         typeName: "Wolf",
         creature: "wolf",
-        attributes: { challengeRating: { min: .25, max: 1 } }
+        variant: "wolf",
+        attributes: { challengeRating: [.25, .5, 1] }
     },
     wolfPup: {
         typeName: "Wolf Pup",
         creature: "wolf",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        variant: "wolf",
+        attributes: { challengeRating: [0] }
     },
 
     // Bears
     bearSolitary: {
         typeName: "Bear",
         creature: "bear",
-        attributes: { challengeRating: { min: .5, max: 2 } }
+        attributes: { challengeRating: [.5, 1, 2] }
     },
     bearAdult: {
         typeName: "Bear",
         creature: "bear",
-        attributes: { challengeRating: { min: .5, max: 2 } }
+        attributes: { challengeRating: [.5, 1, 2] }
     },
     bearCub: {
         typeName: "Bear Cub",
         creature: "bear",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Boars
     boarAdult: {
         typeName: "Boar",
         creature: "boar",
-        attributes: { challengeRating: { min: .25, max: 2 } }
+        attributes: { challengeRating: [.25, .5, 1, 2] }
     },
     boarPiglet: {
         typeName: "Piglet",
         creature: "boar",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Horses
@@ -1025,19 +1546,19 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Stallion",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: .5, max: 2 } }
+        attributes: { challengeRating: [.5, 1, 2] }
     },
     horseMare: {
         typeName: "Mare",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: .25, max: 1 } }
+        attributes: { challengeRating: [.25, .5, 1] }
     },
     horseFoal: {
         typeName: "Foal",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Sharks
@@ -1045,7 +1566,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Shark",
         creature: "shark",
         variant: "frenzy",
-        attributes: { challengeRating: { min: .5, max: 5 } }
+        attributes: { challengeRating: [.5, 1, 2, 3, 4, 5] }
     },
 
     // Whales
@@ -1059,24 +1580,24 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     eagleAdult: {
         typeName: "Eagle",
         creature: "eagle",
-        attributes: { challengeRating: { min: .125, max: 1 } }
+        attributes: { challengeRating: [.125, .25, .5, 1] }
     },
     eaglet: {
         typeName: "Eaglet",
         creature: "eagle",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Apes
     apeAdult: {
         typeName: "Ape",
         creature: "ape",
-        attributes: { challengeRating: { min: .5, max: 7 } }
+        attributes: { challengeRating: [.5, 1, 2, 3, 4, 5, 6, 7] }
     },
     apeJuvenile: {
         typeName: "Young Ape",
         creature: "ape",
-        attributes: { challengeRating: { min: .25, max: .5 } }
+        attributes: { challengeRating: [.25, .5] }
     },
 
     // Giant Spiders
@@ -1090,24 +1611,26 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     crocodileAdult: {
         typeName: "Crocodile",
         creature: "crocodile",
-        attributes: { challengeRating: { min: .5, max: 5 } }
+        attributes: { challengeRating: [.5, 1, 2, 3, 4, 5] }
     },
     crocodileSolitary: {
         typeName: "Crocodile",
         creature: "crocodile",
-        attributes: { challengeRating: { min: .5, max: 2 } }
+        attributes: { challengeRating: [.5, 1, 2] }
     },
 
     // Fey
     dryadSolitary: {
         typeName: "Dryad",
+        nameGenerator: feyNameGenerator,
         creature: "dryad",
-        attributes: { challengeRating: { min: 1, max: 3 } }
+        attributes: { challengeRating: { min: 1, max: 3 }, alignment: 'Neutral' }
     },
     naiadSolitary: {
         typeName: "Naiad",
+        nameGenerator: feyNameGenerator,
         creature: "naiad",
-        attributes: { challengeRating: { min: 2, max: 4 } }
+        attributes: { challengeRating: { min: 2, max: 4 }, alignment: 'Neutral' }
     },
 
     // Plants
@@ -1121,14 +1644,72 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Awakened Shrub",
         creature: "awakenedPlant",
         variant: "shrub",
-        attributes: { challengeRating: { min: 0, max: 1 } }
+        attributes: { challengeRating: [0, .125, .25, .5, 1] }
     },
 
     // Undead
     shadowCreature: {
         typeName: "Shadow",
         creature: "shadow",
-        attributes: { challengeRating: { min: .5, max: 3 } }
+        attributes: { challengeRating: [.5, 1, 2, 3], alignment: 'Chaotic Evil' }
+    },
+
+    // Skeletons
+    skeletonSolitary: {
+        typeName: "Skeleton",
+        creature: "skeleton",
+        attributes: { challengeRating: [.25, .5, 1], alignment: 'Lawful Evil' }
+    },
+
+    // Zombies
+    zombieSolitary: {
+        typeName: "Zombie",
+        creature: "zombie",
+        attributes: { challengeRating: [.25, .5, 1], alignment: 'Neutral Evil' }
+    },
+
+    // Ghouls
+    ghoulSolitary: {
+        typeName: "Ghoul",
+        creature: "ghoul",
+        attributes: { challengeRating: { min: 1, max: 3 }, alignment: 'Chaotic Evil' }
+    },
+
+    // Specters
+    specterSolitary: {
+        typeName: "Specter",
+        creature: "wraith",
+        attributes: { challengeRating: { min: 1, max: 2 }, alignment: 'Neutral Evil' }
+    },
+
+    // Wights
+    wightSolitary: {
+        typeName: "Wight",
+        creature: "wight",
+        attributes: { challengeRating: { min: 3, max: 5 }, alignment: 'Neutral Evil' }
+    },
+
+    // Crypt Lord (legendary wight)
+    cryptLord: {
+        typeName: "Crypt Lord",
+        creature: "wight",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 10 }, alignment: 'Neutral Evil' }
+    },
+
+    // Wraiths
+    wraithSolitary: {
+        typeName: "Wraith",
+        creature: "wraith",
+        attributes: { challengeRating: { min: 5, max: 8 }, alignment: 'Neutral Evil' }
+    },
+
+    // Dread Wraith (legendary wraith)
+    dreadWraith: {
+        typeName: "Dread Wraith",
+        creature: "wraith",
+        legendary: 3,
+        attributes: { challengeRating: { min: 8, max: 12 }, alignment: 'Neutral Evil' }
     },
 
     // Elementals
@@ -1137,12 +1718,168 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         creature: "fireElemental",
         attributes: { challengeRating: { min: 5, max: 8 } }
     },
+    waterElementalSolitary: {
+        typeName: "Water Elemental",
+        creature: "waterElemental",
+        attributes: { challengeRating: { min: 5, max: 8 } }
+    },
+    airElementalSolitary: {
+        typeName: "Air Elemental",
+        creature: "airElemental",
+        attributes: { challengeRating: { min: 5, max: 8 } }
+    },
+    earthElementalSolitary: {
+        typeName: "Earth Elemental",
+        creature: "earthElemental",
+        attributes: { challengeRating: { min: 5, max: 8 } }
+    },
+
+    // Demons
+    dretchSolitary: {
+        typeName: "Dretch",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "dretch",
+        attributes: { challengeRating: [.25, .5, 1, 2], alignment: 'Chaotic Evil' }
+    },
+    quasitSolitary: {
+        typeName: "Quasit",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "quasit",
+        attributes: { challengeRating: { min: 1, max: 3 }, alignment: 'Chaotic Evil' }
+    },
+
+    // Higher-CR Demons
+    vrockSolitary: {
+        typeName: "Vrock",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "vrock",
+        attributes: { challengeRating: { min: 6, max: 8 }, alignment: 'Chaotic Evil' }
+    },
+    hezrouSolitary: {
+        typeName: "Hezrou",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "hezrou",
+        attributes: { challengeRating: { min: 8, max: 10 }, alignment: 'Chaotic Evil' }
+    },
+    glabrezuSolitary: {
+        typeName: "Glabrezu",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "glabrezu",
+        attributes: { challengeRating: { min: 9, max: 12 }, alignment: 'Chaotic Evil' }
+    },
+    nalfeshneeSolitary: {
+        typeName: "Nalfeshnee",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "nalfeshnee",
+        attributes: { challengeRating: { min: 13, max: 15 }, alignment: 'Chaotic Evil' }
+    },
+    marilithSolitary: {
+        typeName: "Marilith",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "marilith",
+        legendary: 3,
+        attributes: { challengeRating: { min: 14, max: 18 }, alignment: 'Chaotic Evil' }
+    },
+    balorSolitary: {
+        typeName: "Balor",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "balor",
+        legendary: 3,
+        attributes: { challengeRating: { min: 17, max: 22 }, alignment: 'Chaotic Evil' }
+    },
+
+    // Devils
+    impSolitary: {
+        typeName: "Imp",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "imp",
+        attributes: { challengeRating: { min: 1, max: 3 }, alignment: 'Lawful Evil' }
+    },
+
+    // Higher-CR Devils
+    lemureSolitary: {
+        typeName: "Lemure",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "lemure",
+        attributes: { challengeRating: [0, .125, .25, .5, 1], alignment: 'Lawful Evil' }
+    },
+    beardedDevilSolitary: {
+        typeName: "Bearded Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "beardedDevil",
+        attributes: { challengeRating: { min: 3, max: 5 }, alignment: 'Lawful Evil' }
+    },
+    barbedDevilSolitary: {
+        typeName: "Barbed Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "barbedDevil",
+        attributes: { challengeRating: { min: 5, max: 7 }, alignment: 'Lawful Evil' }
+    },
+    chainDevilSolitary: {
+        typeName: "Chain Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "chainDevil",
+        attributes: { challengeRating: { min: 8, max: 10 }, alignment: 'Lawful Evil' }
+    },
+    boneDevilSolitary: {
+        typeName: "Bone Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "boneDevil",
+        attributes: { challengeRating: { min: 9, max: 11 }, alignment: 'Lawful Evil' }
+    },
+    hornedDevilSolitary: {
+        typeName: "Horned Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "hornedDevil",
+        attributes: { challengeRating: { min: 11, max: 13 }, alignment: 'Lawful Evil' }
+    },
+    erinyesSolitary: {
+        typeName: "Erinyes",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "erinyes",
+        attributes: { challengeRating: { min: 12, max: 14 }, alignment: 'Lawful Evil' }
+    },
+    iceDevilSolitary: {
+        typeName: "Ice Devil",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "iceDevil",
+        attributes: { challengeRating: { min: 14, max: 16 }, alignment: 'Lawful Evil' }
+    },
+    pitFiendSolitary: {
+        typeName: "Pit Fiend",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "pitFiend",
+        legendary: 3,
+        attributes: { challengeRating: { min: 18, max: 22 }, alignment: 'Lawful Evil' }
+    },
+
+    // Angels
+    angelSolitary: {
+        typeName: "Angel",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "angel",
+        attributes: { challengeRating: { min: 10, max: 16 }, alignment: 'Lawful Good' }
+    },
+    solarAngel: {
+        typeName: "Solar",
+        nameGenerator: extraplanarNameGenerator,
+        creature: "angel",
+        legendary: 3,
+        attributes: { challengeRating: { min: 18, max: 24 }, alignment: 'Lawful Good' }
+    },
 
     // Camels
     camelSolitary: {
         typeName: "Camel",
         creature: "camel",
-        attributes: { challengeRating: { min: .125, max: .5 } }
+        attributes: { challengeRating: [.125, .25, .5] }
+    },
+
+    // Mastiffs
+    mastiffAdult: {
+        typeName: "Mastiff",
+        creature: "mastiff",
+        attributes: { challengeRating: [.125, .25, .5] }
     },
 
     // Big Cats (reskinned saber-toothed tiger)
@@ -1159,21 +1896,23 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     lionCub: {
         typeName: "Lion Cub",
         creature: "saberToothedTiger",
-        attributes: { challengeRating: { min: .25, max: .5 } }
+        attributes: { challengeRating: [.25, .5] }
     },
 
     // Hyenas (reskinned wolf — pack hunters with bite attacks)
     hyenaAdult: {
         typeName: "Hyena",
         creature: "wolf",
-        attributes: { challengeRating: { min: .25, max: 1 } }
+        variant: "wolf",
+        attributes: { challengeRating: [.25, .5, 1] }
     },
 
     // Jackals (reskinned wolf at low CR)
     jackalAdult: {
         typeName: "Jackal",
         creature: "wolf",
-        attributes: { challengeRating: { min: 0, max: .25 } }
+        variant: "wolf",
+        attributes: { challengeRating: [0, .125, .25] }
     },
 
     // Zebras (reskinned riding horse)
@@ -1181,19 +1920,19 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Zebra Stallion",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: .5, max: 1 } }
+        attributes: { challengeRating: [.5, 1] }
     },
     zebraMare: {
         typeName: "Zebra Mare",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: .25, max: .5 } }
+        attributes: { challengeRating: [.25, .5] }
     },
     zebraFoal: {
         typeName: "Zebra Foal",
         creature: "horse",
         variant: "riding",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Gorillas (reskinned ape at higher CR)
@@ -1210,68 +1949,98 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     gorillaJuvenile: {
         typeName: "Young Gorilla",
         creature: "ape",
-        attributes: { challengeRating: { min: .5, max: 1 } }
+        attributes: { challengeRating: [.5, 1] }
     },
 
     // Warthogs (reskinned boar — warm climate)
     warthogAdult: {
         typeName: "Warthog",
         creature: "boar",
-        attributes: { challengeRating: { min: .25, max: 2 } }
+        attributes: { challengeRating: [.25, .5, 1, 2] }
     },
     warthogPiglet: {
         typeName: "Warthog Piglet",
         creature: "boar",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Monkeys (reskinned baboon — tropical forest)
     monkeyAdult: {
         typeName: "Monkey",
         creature: "baboon",
-        attributes: { challengeRating: { min: 0, max: 0 } }
+        attributes: { challengeRating: [0] }
     },
 
     // Baboons
     baboonAdult: {
         typeName: "Baboon",
         creature: "baboon",
-        attributes: { challengeRating: { min: 0, max: .25 } }
+        attributes: { challengeRating: [0, .125, .25] }
     },
 
-    // Vultures (reskinned eagle at low CR)
+    // Vultures
     vultureAdult: {
         typeName: "Vulture",
-        creature: "eagle",
-        attributes: { challengeRating: { min: 0, max: .125 } }
+        creature: "vulture",
+        attributes: { challengeRating: [0, .125, .25, .5, 1] }
+    },
+
+    // Hawks
+    hawkAdult: {
+        typeName: "Hawk",
+        creature: "hawk",
+        variant: "hawk",
+        attributes: { challengeRating: [0, .125] }
     },
 
     // Badgers
     badgerAdult: {
         typeName: "Badger",
         creature: "badger",
-        attributes: { challengeRating: { min: 0, max: .25 } }
+        attributes: { challengeRating: [0, .125, .25] }
     },
 
     // Wolverines (reskinned badger at higher CR — cold forests)
     wolverineSolitary: {
         typeName: "Wolverine",
         creature: "badger",
-        attributes: { challengeRating: { min: .25, max: 1 } }
+        attributes: { challengeRating: [.25, .5, 1] }
+    },
+
+    // Weasels
+    weaselAdult: {
+        typeName: "Weasel",
+        creature: "weasel",
+        attributes: { challengeRating: [0, .125] }
+    },
+
+    // Worgs
+    worgAdult: {
+        typeName: "Worg",
+        creature: "wolf",
+        variant: "worg",
+        attributes: { challengeRating: [.5, 1, 2] }
     },
 
     // Bats
     batSwarm: {
         typeName: "Bat",
         creature: "bat",
-        attributes: { challengeRating: { min: 0, max: .25 } }
+        attributes: { challengeRating: [0, .125, .25] }
     },
 
     // Alligators (reskinned crocodile — swamp)
     alligatorAdult: {
         typeName: "Alligator",
         creature: "crocodile",
-        attributes: { challengeRating: { min: .5, max: 3 } }
+        attributes: { challengeRating: [.5, 1, 2, 3] }
+    },
+
+    // Constrictor Snakes
+    constrictorSnakeAdult: {
+        typeName: "Constrictor Snake",
+        creature: "constrictorSnake",
+        attributes: { challengeRating: [.25, .5, 1, 2] }
     },
 
     // Dinosaurs (found in Forgotten biomes)
@@ -1296,6 +2065,232 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Pterosaur",
         creature: "quetzalcoatlus",
         attributes: { challengeRating: { min: 2, max: 5 } }
+    },
+
+    // Elk
+    elkBull: {
+        typeName: "Elk Bull",
+        creature: "elk",
+        attributes: { challengeRating: { min: 1, max: 2 } }
+    },
+    elkCow: {
+        typeName: "Elk Cow",
+        creature: "elk",
+        attributes: { challengeRating: [.25, .5, 1] }
+    },
+    elkCalf: {
+        typeName: "Elk Calf",
+        creature: "elk",
+        attributes: { challengeRating: [0] }
+    },
+
+    // Goats (mountain goats)
+    goatAdult: {
+        typeName: "Mountain Goat",
+        creature: "goat",
+        attributes: { challengeRating: [0, .125, .25, .5] }
+    },
+
+    // Owls
+    owlAdult: {
+        typeName: "Owl",
+        creature: "owl",
+        attributes: { challengeRating: [.125, .25] }
+    },
+    owlet: {
+        typeName: "Owlet",
+        creature: "owl",
+        attributes: { challengeRating: [0] }
+    },
+
+    // Plesiosaurus (aquatic dinosaur — forgotten biomes)
+    plesiosaurusAdult: {
+        typeName: "Plesiosaurus",
+        creature: "plesiosaurus",
+        attributes: { challengeRating: { min: 2, max: 5 } }
+    },
+
+    // Poisonous Snakes
+    poisonousSnakeAdult: {
+        typeName: "Poisonous Snake",
+        creature: "poisonousSnake",
+        attributes: { challengeRating: [.125, .25] }
+    },
+
+    // Octopuses
+    octopusAdult: {
+        typeName: "Octopus",
+        creature: "cephalopod",
+        variant: "octopus",
+        attributes: { challengeRating: [0, .125, .25, .5, 1] }
+    },
+
+    // Squids (reskinned octopus — faster, open-water variant)
+    squidAdult: {
+        typeName: "Squid",
+        creature: "cephalopod",
+        variant: "squid",
+        attributes: { challengeRating: [0, .125, .25, .5, 1] }
+    },
+
+    // Kraken (legendary deep-water encounter)
+    krakenLair: {
+        typeName: "Kraken",
+        creature: "kraken",
+        legendary: 3,
+        attributes: { challengeRating: { min: 20, max: 25 }, alignment: 'Chaotic Evil' }
+    },
+
+    // Legendary creatures — rare, high-CR mythological beasts
+    // Legendary creatures — rare, high-CR mythological beasts
+    dreadWolf: {
+        typeName: "Dread Wolf",
+        creature: "wolf",
+        variant: "wolf",
+        legendary: 3,
+        attributes: { challengeRating: { min: 8, max: 12 } }
+    },
+    direBoar: {
+        typeName: "Dire Boar",
+        creature: "boar",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 10 } }
+    },
+    thunderbird: {
+        typeName: "Thunderbird",
+        creature: "eagle",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 10 } }
+    },
+    broodmother: {
+        typeName: "Broodmother",
+        creature: "giantSpider",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 10 } }
+    },
+    megalodon: {
+        typeName: "Megalodon",
+        creature: "shark",
+        variant: "frenzy",
+        legendary: 3,
+        attributes: { challengeRating: { min: 8, max: 12 } }
+    },
+
+    // Dragons — rare lair encounters, adults and ancients are legendary
+    dragonLairRed: {
+        typeName: "Red Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "red",
+        legendary: 3,
+        attributes: { challengeRating: { min: 10, max: 24 }, alignment: 'Chaotic Evil' }
+    },
+    dragonLairBlack: {
+        typeName: "Black Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "black",
+        legendary: 3,
+        attributes: { challengeRating: { min: 7, max: 21 }, alignment: 'Chaotic Evil' }
+    },
+    dragonLairBlue: {
+        typeName: "Blue Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "blue",
+        legendary: 3,
+        attributes: { challengeRating: { min: 9, max: 23 }, alignment: 'Chaotic Evil' }
+    },
+    dragonLairGreen: {
+        typeName: "Green Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "green",
+        legendary: 3,
+        attributes: { challengeRating: { min: 8, max: 22 }, alignment: 'Chaotic Evil' }
+    },
+    dragonLairWhite: {
+        typeName: "White Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "white",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 20 }, alignment: 'Chaotic Evil' }
+    },
+    dragonLairGold: {
+        typeName: "Gold Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "gold",
+        legendary: 3,
+        attributes: { challengeRating: { min: 10, max: 24 }, alignment: 'Lawful Good' }
+    },
+    dragonLairSilver: {
+        typeName: "Silver Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "silver",
+        legendary: 3,
+        attributes: { challengeRating: { min: 9, max: 23 }, alignment: 'Lawful Good' }
+    },
+    dragonLairBronze: {
+        typeName: "Bronze Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "bronze",
+        legendary: 3,
+        attributes: { challengeRating: { min: 8, max: 22 }, alignment: 'Lawful Good' }
+    },
+    dragonLairBrass: {
+        typeName: "Brass Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "brass",
+        legendary: 3,
+        attributes: { challengeRating: { min: 6, max: 20 }, alignment: 'Lawful Good' }
+    },
+    dragonLairCopper: {
+        typeName: "Copper Dragon",
+        nameGenerator: dragonNameGenerator,
+        creature: "dragon",
+        variant: "copper",
+        legendary: 3,
+        attributes: { challengeRating: { min: 7, max: 21 }, alignment: 'Lawful Good' }
+    },
+
+    // Rhinoceros
+    rhinoAdult: {
+        typeName: "Rhinoceros",
+        creature: "rhinoceros",
+        attributes: { challengeRating: { min: 2, max: 5 } }
+    },
+
+    // Rats
+    ratAdult: {
+        typeName: "Rat",
+        creature: "rat",
+        attributes: { challengeRating: [0, .125] }
+    },
+
+    // Giant Scorpions
+    giantScorpionAdult: {
+        typeName: "Giant Scorpion",
+        creature: "giantScorpion",
+        attributes: { challengeRating: { min: 3, max: 5 } }
+    },
+
+    // Giant Toads
+    giantToadAdult: {
+        typeName: "Giant Toad",
+        creature: "giantToad",
+        attributes: { challengeRating: { min: 1, max: 3 } }
+    },
+
+    // Giant Wasps
+    giantWaspAdult: {
+        typeName: "Giant Wasp",
+        creature: "giantWasp",
+        attributes: { challengeRating: [.5, 1, 2] }
     },
 
     // Elephants & Mammoths
@@ -1327,7 +2322,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Elephant Calf",
         creature: "elephant",
         variant: "elephant",
-        attributes: { challengeRating: { min: .5, max: .5 } }
+        attributes: { challengeRating: [.5] }
     },
     mammothBull: {
         typeName: "Mammoth Bull",

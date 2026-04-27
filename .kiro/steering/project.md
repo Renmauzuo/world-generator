@@ -36,7 +36,8 @@ src/scripts/
 ├── types.ts                  # Shared interfaces (WorldNode, ObjectTypeTemplate, etc.)
 ├── helpers.ts                # Pure utility functions (rand, weightedRand, operators, etc.)
 ├── nameGenerators.ts         # Name generator functions + queuedName state
-├── attributeGenerators.ts    # Attribute value generators, categoryAttributes, attributeEditors, labels
+├── attributeGenerators.ts    # Attribute value generators, categoryAttributes, attributeEditors, labels, deity/avatar setup
+├── nodeRegistry.ts           # Global node registry for cross-tree references (deities, etc.)
 ├── scripts.ts                # Entry point — DOM logic, event handlers, save/load
 └── data/
     ├── constants.ts          # Shared data constants (populationDensity, temperatureList, etc.)
@@ -54,66 +55,144 @@ The core data structure. A node has a `type` (key into `objectTypes`), optional 
 The data-driven definition of every node type. Each entry defines:
 - `typeName` — display name
 - `categories` — inherits attribute sets from `categoryAttributes` (geography, plane, settlement)
-- `attributes` — attribute definitions (arrays = picklist, functions = generator, `{min,max}` = range)
+- `attributes` — attribute definitions (arrays = picklist, functions = generator, `{min,max}` = range, or fixed strings like `alignment`)
 - `children` — child generation rules with min/max, weightedRange, prerequisites, requiredSibling
 - `nameGenerator` — optional function to generate a name
 - `inheritAttributes` — list of attribute keys to copy from parent instead of generating fresh
 - `creature` / `variant` — links to the monster-scaler companion tool
+- `legendary` — `3 | 5` — if set, the creature is rendered with legendary resistances and auto-generated legendary actions. Also adds `&legendary=N` to the monster-scaler link.
+- `dynamicCreature` — when true, creature/variant/legendary are resolved from node attributes at generation time instead of from the template. Used by deity types where the base creature is selected randomly based on planar context.
+- `customSetup` — optional function called after attributes are generated and before the name generator. Used for complex multi-attribute logic where derived attributes depend on other attributes (e.g. deity domain → creature selection → variant).
+- `registered` — when true, nodes of this type are added to the global node registry on creation. Other nodes can query the registry for cross-tree references (e.g. avatars referencing deities).
+- `tags` — static metadata tags (e.g. `['water']`, `['forest', 'cold']`) describing what this type represents. Not stored on nodes or editable — used by code for context-aware decisions like avatar deity selection based on biome. Tags are collected from the ancestor chain via `collectAncestorTags()`.
 - `referenceBook` / `referencePage` — reference text shown in info panel
+
+### Creature Alignment
+Non-beast creature nodes have an `alignment` attribute (e.g. `'Chaotic Evil'`, `'Lawful Good'`). This is used by name generators to select appropriate titles without maintaining hardcoded type lists. The alignment strings match the planar system format.
 
 ### Category Attributes
 Types that declare `categories` automatically get attributes injected from `categoryAttributes` in `attributeGenerators.ts`. This happens at module load time in `objectTypes.ts` via a post-definition loop.
 
 ### Child Generation
-Children are generated lazily — only when a `<details>` node is expanded. The `needsChildren` flag tracks whether generation has happened yet.
+Children are generated on-demand via a "Generate Children" button. If a generation pass produces zero children (all `min: 0` rolls came up 0), it retries up to 3 times to avoid empty results.
 
 Child templates support:
 - `min`/`max` — random count in range
-- `weightedRange` — weighted random count (e.g. `{1:1, 2:2, 3:3}`)
+- `weightedRange` — weighted random count
 - `type` as a weighted object — weighted random type selection
-- `conditions` — array of `Condition` objects evaluated as OR — child is valid if any condition passes. Each condition has `attribute`, `value`, and optional `match` (default `true` = must equal, `false` = must not equal)
+- `conditions` — array of `Condition` objects evaluated as OR
 - `requiredSibling` — always spawn this type alongside the child
 
-- **Child generation** is now on-demand via a "Generate Children" button on each node. Clicking it generates and appends a set of children and opens the `<details>` element. The button can be clicked multiple times to add more children.
+### Node Registry
+A global `Map<string, WorldNode[]>` in `nodeRegistry.ts` that tracks nodes by type for cross-tree references. Only types with `registered: true` on their template are tracked. The registry is:
+- Populated in `generateNode` after a registered node is created
+- Cleared and rebuilt from the tree when loading/importing a world from JSON
+- Cleared when generating a new world
+
+Currently registered types: `greaterDeity`, `lesserDeity`, `demigod`. Used by avatars to reference a source deity, and will be used by NPCs for patron deity selection.
+
+To avoid circular imports, `nodeRegistry.ts` does not import `objectTypes.ts` — the `registered` check happens in `scripts.ts` before calling `registerNode`. The `registerTree` function accepts a `Set<string>` of registered type keys for the load/import path.
 
 ## Known TODOs / In-Flight
 
 - **`races` / `racialDemographics`** will likely be removed — the project is moving toward shared npm packages for this kind of data
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
 - **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
-- Remaining `//TODO` stubs: planar layer geography, demiplane geography, moons/celestial bodies, coastal settlement children
-- **Full creature coverage** — long-term goal is for every creature in `@toolkit5e/monster-scaler`'s `monsterList` to have a path in the world generator's node hierarchy. The typed `creature` field (`MonsterID`) ensures only valid keys are used. Currently referenced: all 27 monsterList entries. Remaining unplaced: `commoner`, `dolphinDelighter`.
+- Remaining `//TODO` stubs: moons/celestial bodies, coastal settlement children
+- **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. Major categories remaining: giants, monstrosities (owlbear, griffon, manticore, etc.), humanoid races (goblin, orc, kobold), NPC statblocks, constructs, oozes, and more undead (vampire, lich).
 
 ## Content Coverage
 
-### Regions (children of Continent)
-Forests (rainforest, deciduous, coniferous), tundra, plains, hills, swamp, desert, savanna, coast, mountain range, sea, lake, river. Plus rare **Forgotten biomes** (forgotten island, forgotten forest, forgotten valley) that contain dinosaurs.
+### Prime Material — Regions (children of Continent)
+Forests (rainforest, deciduous, coniferous), tundra, plains, hills, swamp, desert, savanna, coast, mountain range, sea, lake, river. Plus rare **Forgotten biomes** (forgotten island, forgotten forest, forgotten valley) with dinosaurs.
+
+### Planar Geography
+Planar layers inherit alignment and element from their parent plane. Element-conditioned biomes:
+- **Fire**: Lava Lakes, Ash Fields
+- **Water**: Abyssal Depths, Coral Palaces
+- **Earth**: Crystal Caverns, Stone Forests
+- **Air**: Cloud Islands, Storm Fronts
+- **Positive Energy**: Radiant Groves, Life Springs
+- **Negative Energy**: Necropolises, Bone Wastes
+- **None**: Chaos Wastes, Ethereal Meadows
+
+Alignment-conditioned biomes:
+- **Evil**: Infernal Citadels (devils), Abyssal Fortresses (demons)
+- **Good**: Celestial Spires (angels)
+
+### Divine Realms
+Planar layers can spawn a Divine Realm (max 1 per layer) — the seat of a deity's power. Divine realms inherit alignment and element from their parent layer and contain a deity hierarchy:
+- **Greater Deity** (max 1) — CR 26–30, `legendary: 5`. Can have lesser deities and demigods as attendants.
+- **Lesser Deity** (max 2) — CR 22–26, `legendary: 5`. Can have demigods as attendants.
+- **Demigod** (max 3) — CR 20–24, `legendary: 3`. Leaf node (no children).
+
+Deity types use `dynamicCreature: true` — the base creature is selected at generation time from a weighted pool filtered by the plane's alignment and element. The `creature`, `variant`, and `legendary` values are stored on the node's attributes so they persist through save/load and are editable by users.
+
+Each deity is assigned a **domain** (portfolio) at generation time — War, Nature, Knowledge, Death, Life, Tempest, Forge, Trickery, Light, Shadow, Sea, Beasts, or Arcana. Domains are filtered by alignment and element compatibility (e.g. no Death on positive energy planes, no Life on negative energy). The domain influences:
+- **Creature selection** — domains add creature overrides to the pool and boost weights for thematically appropriate creatures (e.g. Nature boosts beasts/fey, Sea boosts kraken/aquatic)
+- **Title generation** — each domain contributes its own title pool to the name generator (e.g. War adds "the Conqueror", "Lord of Battles")
+
+Divine realms also spawn alignment-appropriate attendant creatures (angel patrols, devil patrols, demon hordes).
+
+### Avatars
+Avatars are manifestations of deities outside their home plane. They spawn as rare encounters (`min: 0, max: 1`) inside biomes and locations — both on the material plane (forests, seas, mountains, etc.) and on planar biomes (lava lakes, celestial spires, etc.). CR 15–22, `legendary: 3`.
+
+The `avatarSetup` function uses two signals to select an appropriate deity:
+1. **Node registry** — queries for existing deities, weighted by tier (greater > lesser > demigod)
+2. **Location tags** — collected from the ancestor chain via `collectAncestorTags()`. Tags like `water`, `forest`, `mountain` are matched against deity domains via `tagToDomains` mapping. A Sea domain deity gets a 3x weight boost when the avatar spawns in a `water`-tagged biome.
+
+If no deities exist yet, the avatar falls back to tag-aware domain selection (`selectDomainByTags`), then standard alignment/element-based creature selection.
+
+### Tags
+Static metadata on `ObjectTypeTemplate` describing what a type represents. Current tag vocabulary:
+- **Element**: `water`, `fire`, `earth`, `air`
+- **Biome**: `forest`, `mountain`, `plains`, `desert`, `swamp`, `hills`
+- **Climate**: `cold`
+- **Other**: `underground`, `undead`, `evil`, `good`
+
+Tags are mapped to deity domains via `tagToDomains` in `attributeGenerators.ts` (e.g. `water` → Sea/Tempest, `forest` → Nature/Beasts). This mapping is the single source of truth for tag-to-domain relationships.
 
 ### Creature Groups
-Wolf packs, bear dens, boar sounders, horse herds, shark packs, whale pods, spider nests, eagle nests, ape troops, dryad groves, awakened tree copses, crocodile dens, shadow haunts, camel caravans, elephant herds, mammoth herds, lion prides, hyena packs, jackal packs, zebra herds, gorilla troops, warthog sounders, monkey troops, baboon troops, vulture flocks, badger setts, bat colonies, alligator dens, triceratops herds, pterosaur flocks.
+Beasts: wolf packs, bear dens, boar sounders, horse herds, shark packs, whale pods, spider nests, eagle nests, ape troops, dryad groves, awakened tree copses, crocodile dens, camel caravans, elephant/mammoth herds, lion prides, hyena packs, jackal packs, zebra herds, gorilla troops, warthog sounders, monkey/baboon troops, vulture flocks, badger setts, bat colonies, alligator dens, triceratops herds, pterosaur flocks, elk herds, constrictor/poisonous snake nests, rhinoceros crashes, goat herds, owl nests, scorpion nests, giant toad dens, octopus dens, squid shoals, giant wasp nests, rat warrens, worg packs.
 
-### Reskinned Creatures
-The mammoth/elephant pattern — using one `monsterList` entry at different CRs or with different display names to represent related real-world animals:
-- `saberToothedTiger` → lion (CR 1–4), panther (CR 0.25–1), tiger (CR 1–3)
-- `ape` → gorilla (CR 2–7)
-- `horse` riding → zebra (warm plains/savanna)
-- `wolf` → hyena (CR 0.25–1), jackal (CR 0–0.25)
-- `boar` → warthog (warm climate)
-- `badger` → wolverine (CR 0.25–1, cold forests/tundra)
-- `baboon` → monkey (tropical forest)
-- `crocodile` → alligator (swamp)
-- `eagle` → vulture (CR 0–0.125)
-- `bat` → cave bats
+Undead: shadow haunts, skeleton crypts, zombie hordes, ghoul packs.
 
-- `elephant` triceratops → triceratops (CR 1–7, forgotten biomes)
-- `trex` → tyrannosaurus rex (CR 6–10, forgotten biomes)
-- `quetzalcoatlus` → pterosaur (CR 2–5, forgotten biomes)
+Fiends: demon hordes, demon warbands, devil patrols, devil legions.
 
-### Forgotten Biomes
-Rare ancient pockets where civilization hasn't reached and prehistoric creatures survived. Spawn as rare children (min 0, max 1) of warm continents, oceans/archipelagos, and mountain ranges. Each contains a mix of dinosaurs (T-Rex, triceratops herds, pterosaur flocks) alongside regular fauna. Named with evocative adjectives: "The Forgotten Island", "The Primeval Valley", etc.
+### Legendary Creatures
+Rare, high-CR creatures with `legendary: 3` that spawn with legendary resistances and auto-generated legendary actions:
+- **Mythological beasts**: Dread Wolf, Dire Boar, Thunderbird, Broodmother, Megalodon
+- **Aquatic**: Kraken (real SRD entry, CR 23)
+- **Dragons**: All 10 colors (5 chromatic + 5 metallic), CR 6–24
+- **Demons**: Marilith (CR 14–18), Balor (CR 17–22)
+- **Devils**: Pit Fiend (CR 18–22)
+- **Angels**: Solar (CR 18–24)
+- **Undead**: Crypt Lord, Dread Wraith
 
 ### Name Generators
-`forestNameGenerator` (temperature-aware), `mountainNameGenerator`, `mountainRangeNameGenerator`, `plainsNameGenerator`, `swampNameGenerator`, `desertNameGenerator`, `savannaNameGenerator`, `forgottenBiomeNameGenerator` (type-aware), `caveNameGenerator`, `lakeNameGenerator`, `riverNameGenerator` — plus the original planar/continent generators.
+- `planarNameGenerator` — three formats: title only ("The Realm of Fire"), name only ("Eryslai"), or name + title ("Disia, the Kingdom of Angels"). Planar layers get layer-specific place nouns (Layer, Stratum, Tier, etc.).
+- `dragonNameGenerator` — draconic syllable pools + alignment-based and element-based titles. Title probability scales with CR.
+- `extraplanarNameGenerator` — shared by angels, demons, and devils. Biblical/Enochian syllable pools. Titles vary by alignment (celestial/demonic/infernal) and CR. Small chance of title-only for ancient beings.
+- `deityNameGenerator` — three paths: exotic divine name (most common), creature-derived name (ascended mortal, uses base creature's name generator), or title-only (ancient beings). Titles scale with deity tier and are flavored by alignment. Greater deities get grander titles ("the Almighty", "Creator of Worlds").
+- `feyNameGenerator` — nature-inspired names with optional nature-themed titles.
+- `forestNameGenerator`, `mountainNameGenerator`, `mountainRangeNameGenerator`, `plainsNameGenerator`, `swampNameGenerator`, `desertNameGenerator`, `savannaNameGenerator`, `forgottenBiomeNameGenerator`, `caveNameGenerator`, `lakeNameGenerator`, `riverNameGenerator`, `continentNameGenerator`.
+
+### Reskinned Creatures
+Using one `monsterList` entry at different CRs or with different display names:
+- `saberToothedTiger` → lion, panther, tiger
+- `ape` → gorilla
+- `horse` riding → zebra
+- `wolf` → hyena, jackal
+- `boar` → warthog
+- `badger` → wolverine
+- `baboon` → monkey
+- `crocodile` → alligator
+- `eagle` → vulture (now has own entry)
+- `bat` → cave bats
+- `cephalopod` squid → squid
+- `elephant` → mammoth, triceratops
+- `trex` → tyrannosaurus rex
+- `quetzalcoatlus` → pterosaur
 
 ## Conventions
 
@@ -122,7 +201,12 @@ Rare ancient pockets where civilization hasn't reached and prehistoric creatures
 - New attribute generator functions go in `src/scripts/attributeGenerators.ts`
 - New name generators go in `src/scripts/nameGenerators.ts`
 - Node type keys are camelCase (e.g. `coastalCityLarge`, `mammothHerd`)
-- The hierarchy is roughly: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean → Region → Locality → Point of Interest / Creature
+- Non-beast creature nodes should have an `alignment` attribute for name generator compatibility
+- The hierarchy is: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean (or Planar Layer) → Region/Biome → Locality → Point of Interest / Creature
+- Creatures and creature groups should spawn inside biomes/localities, not directly on regions or layers
+- Dynamic creature types (like deities) use `dynamicCreature: true` on the template and store `creature`, `variant`, and `legendary` as node attributes. The `customSetup` function in `attributeGenerators.ts` handles all derived attribute logic (domain selection, creature selection, variant, legendary). The statblock modal and link builder check node attributes when `dynamicCreature` is true.
+- `customSetup` runs after attribute generation and before the name generator. It's the right place for any logic that needs to read resolved attributes and set derived ones. Deity setup (`deitySetup`) is the first user of this pattern.
+- Attribute generation now handles primitive values (string, number, boolean) as fixed defaults — useful for fallback values when inheritance fails.
 
 ## Steering Maintenance
 
