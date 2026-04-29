@@ -93,6 +93,19 @@ Currently registered types: `greaterDeity`, `lesserDeity`, `demigod`. Used by av
 
 To avoid circular imports, `nodeRegistry.ts` does not import `objectTypes.ts` — the `registered` check happens in `scripts.ts` before calling `registerNode`. The `registerTree` function accepts a `Set<string>` of registered type keys for the load/import path.
 
+### Preset Worlds
+Pre-built world skeletons defined in `src/scripts/data/presets.ts` as typed `WorldNode` trees. Bundled directly into the JS at build time — no fetch/CORS issues. The UI shows a "Load preset" dropdown in the control panel.
+
+Presets provide the high-level structure (planes, continents, major regions) with names and attributes set. Users generate children to fill in the details with random content.
+
+Current presets:
+- **Forgotten Realms** — Toril with Faerûn, Kara-Tur, Maztica, Zakhara; the Great Wheel outer planes; inner elemental planes; Feywild and Shadowfell
+- **EverQuest** — Norrath with Antonica, Odus, Faydwer, Kunark, Velious; Luclin; the Planes of Power (Fire, Water, Earth, Air, Valor, Growth, Hate, Fear, etc.)
+
+To add a new preset: create a new file in `src/scripts/data/presets/`, export the `WorldNode`, and add it to the array in `index.ts`.
+
+Presets also serve as a **litmus test for the generator's expressiveness**. If a preset requires hand-placing content that the random generator can't produce naturally, that's a signal the generation algorithm needs refinement. The goal is that a fully random world should be able to produce something resembling any of the preset settings — the presets just give it a head start with named locations and creatures.
+
 ## Known TODOs / In-Flight
 
 - **`races` / `racialDemographics`** will likely be removed — the project is moving toward shared npm packages for this kind of data
@@ -126,10 +139,19 @@ Planar layers can spawn a Divine Realm (max 1 per layer) — the seat of a deity
 - **Lesser Deity** (max 2) — CR 22–26, `legendary: 5`. Can have demigods as attendants.
 - **Demigod** (max 3) — CR 20–24, `legendary: 3`. Leaf node (no children).
 
-Deity types use `dynamicCreature: true` — the base creature is selected at generation time from a weighted pool filtered by the plane's alignment and element. The `creature`, `variant`, and `legendary` values are stored on the node's attributes so they persist through save/load and are editable by users.
+Deity types use `dynamicCreature: true` — the base creature is dynamically selected at generation time by scoring every creature in `monsterList` for fitness. The `creature`, `variant`, and `legendary` values are stored on the node's attributes so they persist through save/load and are editable by users.
+
+The dynamic creature scorer (`scoreCreatureForDeity`) evaluates each creature based on:
+- **Max real CR** — highest benchmark with actual stats (checks for `hitDice`), capped at 20. Creatures below CR 2 are excluded.
+- **Creature type affinity** — celestials on good planes, fiends on evil planes, dragons everywhere, etc. Hard exclusions for mismatches (celestial on evil plane = 0).
+- **Alignment compatibility** — exact match, partial axis match, or neutral/unaligned flexibility.
+- **Element inference from immunities** — fire immunity on a fire plane, cold immunity on water/air, etc.
+- **Domain affinity** — creature type mapped to compatible domains (beast → nature/beasts, fiend → war/trickery/death, etc.)
+
+This system is self-maintaining — new creatures added to `monsterList` are automatically considered without updating any pool or list.
 
 Each deity is assigned a **domain** (portfolio) at generation time — War, Nature, Knowledge, Death, Life, Tempest, Forge, Trickery, Light, Shadow, Sea, Beasts, or Arcana. Domains are filtered by alignment and element compatibility (e.g. no Death on positive energy planes, no Life on negative energy). The domain influences:
-- **Creature selection** — domains add creature overrides to the pool and boost weights for thematically appropriate creatures (e.g. Nature boosts beasts/fey, Sea boosts kraken/aquatic)
+- **Creature selection** — the domain key is passed to the scorer, which gives bonus weight to creatures whose type has affinity with that domain
 - **Title generation** — each domain contributes its own title pool to the name generator (e.g. War adds "the Conqueror", "Lord of Battles")
 
 Divine realms also spawn alignment-appropriate attendant creatures (angel patrols, devil patrols, demon hordes).

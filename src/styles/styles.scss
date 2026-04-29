@@ -106,3 +106,35 @@ input, select, label, button {
         height: 30%;
     }
   }*/
+
+.demographics-group {
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 0;
+
+    summary {
+        cursor: pointer;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .demographics-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        margin-bottom: 2px;
+
+        label {
+            margin-bottom: 0;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        input {
+            width: 50px;
+            margin-bottom: 0;
+            text-align: right;
+        }
+    }
+}

@@ -1,11 +1,12 @@
 import type { WorldNode } from './types';
 import { objectTypes } from './data/objectTypes';
+import { presets } from './data/presets/index';
 import { attributeEditors, labels } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree } from './nodeRegistry';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
-import { stringForCR } from '@toolkit5e/base';
+import { stringForCR, toTitleCase } from '@toolkit5e/base';
 import { renderStatblock } from '@toolkit5e/statblock';
 
 let rootNode: WorldNode;
@@ -26,6 +27,14 @@ $(function () {
         worldList = JSON.parse(localStorage['worldList']);
     }
     updateLoadList();
+
+    // Populate the preset dropdown
+    const $preset = $('#load-preset');
+    $preset.empty();
+    $('<option value="">Select Preset</option>').appendTo($preset);
+    for (let i = 0; i < presets.length; i++) {
+        $('<option></option>').attr('value', String(i)).html(presets[i].name).appendTo($preset);
+    }
 
     // Start by creating a multiverse
     createRootNode('multiverse');
@@ -96,9 +105,16 @@ $(function () {
             }
             selectedNode.name = $(this)[0].value;
         } else {
-            // Parse numeric attribute values back to numbers (select elements return strings)
-            const rawValue = $(this)[0].value;
-            selectedNode.attributes![attribute] = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
+            // Check if this is a racial demographics sub-input
+            const raceKey = $(this).data('race');
+            if (raceKey) {
+                const value = parseInt($(this)[0].value, 10) || 0;
+                selectedNode.attributes!.racialDemographics[raceKey] = Math.max(0, value);
+            } else {
+                // Parse numeric attribute values back to numbers (select elements return strings)
+                const rawValue = $(this)[0].value;
+                selectedNode.attributes![attribute] = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
+            }
         }
 
         // When creature changes on a dynamic creature node, rebuild the variant dropdown
@@ -123,7 +139,8 @@ $(function () {
                 const $variantSelect = $('<select id="variant"></select>');
                 $('<option value="">None</option>').appendTo($variantSelect);
                 for (const v of variants) {
-                    $('<option></option>').attr('value', v).html(v).appendTo($variantSelect);
+                    const variantName = creatureEntry.variants![v as keyof typeof creatureEntry.variants].name;
+                    $('<option></option>').attr('value', v).html(variantName).appendTo($variantSelect);
                 }
                 $variantSelect.insertAfter($variantLabel);
                 $('<br>').insertAfter($variantSelect);
@@ -148,6 +165,14 @@ $(function () {
     $('#load-saved').on('input', function () {
         confirmSaved();
         createWorldFromJSON(localStorage['world-' + ($(this)[0] as HTMLInputElement).value]);
+    });
+
+    $('#load-preset').on('change', function () {
+        const index = ($(this)[0] as HTMLSelectElement).value;
+        if (!index) return;
+        confirmSaved();
+        createWorldFromJSON(JSON.stringify(presets[parseInt(index, 10)].data));
+        saved = true;
     });
 
     $('#button-import-root').on('click', function () {
@@ -205,11 +230,13 @@ function showInfoForNode(node: WorldNode): void {
             const templateAttribute = attributeEditors[attribute] || template.attributes?.[attribute];
 
             if (attribute === 'creature' && template.dynamicCreature) {
-                // Creature dropdown — list all monsterList keys sorted alphabetically
+                // Creature dropdown — list all monsterList keys with friendly display names
                 const creatureKeys = Object.keys(monsterList).sort();
                 $input = $('<select id="creature"></select>');
                 for (const key of creatureKeys) {
-                    const $option = $('<option></option>').attr('value', key).html(key);
+                    const entry = monsterList[key as keyof typeof monsterList];
+                    const displayName = entry.name || toTitleCase(key);
+                    const $option = $('<option></option>').attr('value', key).html(displayName);
                     if (key === node.attributes[attribute]) {
                         $option.attr('selected', 'selected');
                     }
@@ -229,7 +256,8 @@ function showInfoForNode(node: WorldNode): void {
                     const $variantSelect = $('<select id="variant"></select>');
                     $('<option value="">None</option>').appendTo($variantSelect);
                     for (const v of variants) {
-                        const $option = $('<option></option>').attr('value', v).html(v);
+                        const variantName = creatureEntry.variants![v as keyof typeof creatureEntry.variants].name;
+                        const $option = $('<option></option>').attr('value', v).html(variantName);
                         if (v === node.attributes.variant) {
                             $option.attr('selected', 'selected');
                         }
@@ -257,6 +285,22 @@ function showInfoForNode(node: WorldNode): void {
                 $input = $('<input type="text" id=' + attribute + '>').attr('value', node.attributes[attribute]);
             } else if (typeof node.attributes[attribute] === "number") {
                 $input = $('<input type="number" id=' + attribute + '>').attr('value', node.attributes[attribute]);
+            } else if (attribute === 'racialDemographics' && typeof node.attributes[attribute] === 'object') {
+                // Render racial demographics as a collapsible group of number inputs
+                const demographics = node.attributes[attribute] as Record<string, number>;
+                const $details = $('<details class="demographics-group"></details>');
+                $('<summary>Racial Demographics</summary>').appendTo($details);
+                for (const race in demographics) {
+                    const raceLabel = labels[race] || capitalize(race);
+                    const $raceRow = $('<div class="demographics-row"></div>');
+                    $('<label for="demo-' + race + '">' + raceLabel + ': </label>').appendTo($raceRow);
+                    $('<input type="number" id="demo-' + race + '" min="0" data-race="' + race + '">').attr('value', demographics[race]).appendTo($raceRow);
+                    $raceRow.appendTo($details);
+                }
+                $details.insertAfter($label);
+                $label.remove(); // Remove the generic label since the details summary replaces it
+                $('<br>').insertAfter($details);
+                continue;
             } else {
                 $input = $('<p>TBD</p>');
             }
@@ -289,7 +333,7 @@ function showInfoForNode(node: WorldNode): void {
         if (creatureLegendary) {
             creatureLink += '&legendary=' + creatureLegendary;
         }
-        creatureLink += '&name=' + template.typeName;
+        creatureLink += '&name=' + encodeURIComponent(node.name || template.typeName);
         $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
         $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);
     }

@@ -585,6 +585,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'elkHerd', min: 0, max: 2 },
             { type: 'dreadWolf', min: 0, max: 1 },
             { type: 'dragonLairWhite', min: 0, max: 1 },
+            { type: 'frostGiantPatrol', min: 0, max: 1 },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -705,6 +706,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Hills",
         tags: ['hills'],
         categories: ['geography'],
+        inheritAttributes: ["temperature"],
         children: [
             { type: 'cave', min: 0, max: 3 },
             { type: 'bearSolitary', min: 0, max: 2 },
@@ -724,6 +726,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Swamp",
         tags: ['swamp'],
         categories: ['geography'],
+        inheritAttributes: ["temperature"],
         nameGenerator: swampNameGenerator,
         children: [
             { type: 'crocodileDen', min: 0, max: 2 },
@@ -740,6 +743,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     desert: {
         typeName: "Desert",
         tags: ['desert'],
+        inheritAttributes: ["temperature"],
         nameGenerator: desertNameGenerator,
         children: [
             { type: 'camelCaravan', min: 0, max: 2 },
@@ -755,6 +759,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Savanna",
         tags: ['plains'],
         categories: ['geography'],
+        inheritAttributes: ["temperature"],
         nameGenerator: savannaNameGenerator,
         children: [
             { type: 'lionPride', min: 0, max: 3 },
@@ -833,6 +838,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     mountainRange: {
         typeName: "Mountain Range",
         tags: ['mountain'],
+        inheritAttributes: ["temperature"],
         nameGenerator: mountainRangeNameGenerator,
         children: [
             { type: 'mountain', min: 5, max: 20 },
@@ -946,12 +952,24 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Cave",
         tags: ['underground'],
         nameGenerator: caveNameGenerator,
+        attributes: {
+            temperature: temperatureList
+        },
+        inheritAttributes: ["temperature"],
         children: [
             {
-                type: { bearDen: 30, spiderNest: 20, wolfDen: 15, batColony: 15, ratWarren: 10, shadowHaunt: 10 },
+                type: { bearDen: 30, spiderNest: 20, wolfDen: 15, batColony: 15, ratWarren: 10, shadowHaunt: 5, goblinWarband: 3, ogreGang: 2 },
                 min: 0,
                 max: 1
-            }
+            },
+            {
+                type: {
+                    dragonLairRed: 2, dragonLairBlack: 2, dragonLairBlue: 2, dragonLairGreen: 2, dragonLairWhite: 2,
+                    dragonLairGold: 1, dragonLairSilver: 1, dragonLairBronze: 1, dragonLairBrass: 1, dragonLairCopper: 1
+                },
+                weightedRange: { 0: 90, 1: 10 }
+            },
+            { type: 'frostGiantPatrol', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold' }] }
         ]
     },
     shipwreck: {
@@ -1269,6 +1287,28 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'chainDevilSolitary', min: 0, max: 1 },
             { type: 'boneDevilSolitary', min: 0, max: 1 },
             { type: 'hornedDevilSolitary', min: 0, max: 1 }
+        ]
+    },
+    goblinWarband: {
+        typeName: "Goblin Warband",
+        children: [
+            { type: 'goblinChief', min: 0, max: 1 },
+            { type: 'goblinVeteran', min: 0, max: 2 },
+            { type: 'goblinSolitary', min: 2, max: 6 },
+            { type: 'goblinRunt', min: 0, max: 4 },
+            { type: 'worgAdult', min: 0, max: 2 }
+        ]
+    },
+    frostGiantPatrol: {
+        typeName: "Frost Giant Patrol",
+        children: [
+            { type: 'frostGiantSolitary', min: 1, max: 3 }
+        ]
+    },
+    ogreGang: {
+        typeName: "Ogre Gang",
+        children: [
+            { type: 'ogreSolitary', min: 1, max: 3 }
         ]
     },
     camelCaravan: {
@@ -1732,6 +1772,44 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Earth Elemental",
         creature: "earthElemental",
         attributes: { challengeRating: { min: 5, max: 8 } }
+    },
+
+    // Giants
+    frostGiantSolitary: {
+        typeName: "Frost Giant",
+        creature: "giant",
+        attributes: { challengeRating: { min: 8, max: 12 } }
+    },
+    ogreSolitary: {
+        typeName: "Ogre",
+        creature: "ogre",
+        attributes: { challengeRating: { min: 2, max: 5 } }
+    },
+
+    // Goblins
+    goblinRunt: {
+        typeName: "Goblin Runt",
+        creature: "goblin",
+        variant: "goblin",
+        attributes: { challengeRating: [0, .125] }
+    },
+    goblinSolitary: {
+        typeName: "Goblin",
+        creature: "goblin",
+        variant: "goblin",
+        attributes: { challengeRating: [.25, .5, 1] }
+    },
+    goblinVeteran: {
+        typeName: "Goblin Veteran",
+        creature: "goblin",
+        variant: "goblin",
+        attributes: { challengeRating: { min: 2, max: 4 } }
+    },
+    goblinChief: {
+        typeName: "Goblin Chief",
+        creature: "goblin",
+        variant: "goblin",
+        attributes: { challengeRating: { min: 4, max: 6 } }
     },
 
     // Demons
@@ -2361,7 +2439,8 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     }
 };
 
-// Mix in category attributes for all types that declare categories
+// Mix in category attributes for all types that declare categories.
+// Type-specific attributes take precedence — category attributes are only added if not already defined.
 for (const type in objectTypes) {
     const typeTemplate = objectTypes[type];
     if (typeTemplate.categories) {
@@ -2369,7 +2448,11 @@ for (const type in objectTypes) {
             typeTemplate.attributes = {};
         }
         for (const category of typeTemplate.categories) {
-            Object.assign(typeTemplate.attributes, categoryAttributes[category]);
+            for (const attr in categoryAttributes[category]) {
+                if (!(attr in typeTemplate.attributes)) {
+                    typeTemplate.attributes[attr] = categoryAttributes[category][attr];
+                }
+            }
         }
     }
 }
