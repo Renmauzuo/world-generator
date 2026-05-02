@@ -28,32 +28,50 @@ $(function () {
     }
     updateLoadList();
 
-    // Populate the preset dropdown
+    // Populate the preset dropdown (hidden when no presets are available)
     const $preset = $('#load-preset');
     $preset.empty();
-    $('<option value="">Select Preset</option>').appendTo($preset);
-    for (let i = 0; i < presets.length; i++) {
-        $('<option></option>').attr('value', String(i)).html(presets[i].name).appendTo($preset);
+    if (presets.length > 0) {
+        $('<option value="">Select Preset</option>').appendTo($preset);
+        for (let i = 0; i < presets.length; i++) {
+            $('<option></option>').attr('value', String(i)).html(presets[i].name).appendTo($preset);
+        }
+        $('#load-preset, #preset-label').show();
+    } else {
+        $('#load-preset, #preset-label').hide();
     }
 
     // Start by creating a multiverse
-    createRootNode('multiverse');
+    createRootNode('districtTemple');
 
-    $('body').on('click', 'details,p', function (e: JQuery.Event) {
+    // Clicking a node label selects it (shows info in the right panel)
+    $('body').on('click', '.node-label', function (e: JQuery.Event) {
         e.stopPropagation();
-        const node = $(this).data('node');
+        const node = $(this).closest('.node').data('node');
         if (node) {
             showInfoForNode(node);
         }
     });
 
+    // Clicking the toggle arrow expands/collapses children
+    $('body').on('click', '.node-toggle', function (e: JQuery.Event) {
+        e.stopPropagation();
+        const $node = $(this).closest('.node');
+        const $children = $node.children('.node-children');
+        $children.toggle();
+        $(this).html($children.is(':visible') ? '▼' : '▶');
+    });
+
     $('body').on('click', '.button-generate-children', function (e: JQuery.Event) {
         e.stopPropagation();
-        const $details = $(this).closest('details');
-        const node = $details.data('node');
+        const $node = $(this).closest('.node');
+        const node = $node.data('node');
         if (node) {
             generateChildrenForNode(node);
-            $details.attr('open', '');
+            // Expand the children after generating
+            const $children = $node.children('.node-children');
+            $children.show();
+            $node.children('.node-toggle').html('▼');
         }
     });
 
@@ -72,7 +90,22 @@ $(function () {
                 legendary: creatureLegendary
             });
             statblock.name = selectedNode.name || template.typeName;
-            statblock.description = 'the ' + statblock.slug;
+            // Named nodes are unique creatures — traits should reference them by name
+            if (selectedNode.name) {
+                statblock.unique = true;
+                statblock.description = selectedNode.name;
+            } else {
+                statblock.description = 'the ' + statblock.slug;
+            }
+            // Apply gender for pronoun rendering
+            const genderStr = selectedNode.attributes?.gender;
+            if (genderStr) {
+                statblock.gender = genderStr === 'Male' ? 1 : genderStr === 'Female' ? 2 : 3;
+            }
+            // Apply alignment
+            if (selectedNode.attributes?.alignment) {
+                statblock.alignment = selectedNode.attributes.alignment;
+            }
             const $body = $('#statblock-modal-body');
             $body.empty();
             renderStatblock(statblock, $body[0]);
@@ -93,16 +126,12 @@ $(function () {
         }
     });
 
-    $('#info-panel').on('input change', 'input,select', function () {
+    $('#info-panel').on('input change', 'input,select,textarea', function () {
         const attribute: string = $(this).attr('id');
         // If its name changed then update the associated DOM element
         if (attribute === 'name') {
-            const summaryText = objectTypes[selectedNode.type].typeName + ' (' + $(this)[0].value + ')';
-            if (selectedNode.children) {
-                selectedNode.domElement!.children('summary').html(summaryText);
-            } else {
-                selectedNode.domElement!.html(summaryText);
-            }
+            const labelText = objectTypes[selectedNode.type].typeName + ' (' + $(this)[0].value + ')';
+            selectedNode.domElement!.children('.node-label').html(labelText);
             selectedNode.name = $(this)[0].value;
         } else {
             // Check if this is a racial demographics sub-input
@@ -273,7 +302,7 @@ function showInfoForNode(node: WorldNode): void {
                 $input = $('<select id=' + attribute + '></select>');
                 for (const index in templateAttribute) {
                     const value = templateAttribute[index];
-                    const displayText = attribute === 'challengeRating' ? stringForCR(value) : value;
+                    const displayText = attribute === 'challengeRating' ? stringForCR(value) : (labels[value] || value);
                     const $option = $('<option></option>').attr('value', value).html(displayText).appendTo($input);
                     // If this is the current value select it (use == for numeric/string coercion)
                     if (value == node.attributes[attribute]) {
@@ -281,6 +310,8 @@ function showInfoForNode(node: WorldNode): void {
                     }
                 }
             // If it's not an array just check the type of the current value
+            } else if (templateAttribute === 'textarea') {
+                $input = $('<textarea id=' + attribute + ' rows="3"></textarea>').val(node.attributes[attribute]);
             } else if (typeof node.attributes[attribute] === "string") {
                 $input = $('<input type="text" id=' + attribute + '>').attr('value', node.attributes[attribute]);
             } else if (typeof node.attributes[attribute] === "number") {
@@ -308,14 +339,6 @@ function showInfoForNode(node: WorldNode): void {
             $('<br>').insertAfter($input);
         }
     }
-    if (template.referenceBook) {
-        let referenceText = "For more information please see ";
-        if (template.referencePage) {
-            referenceText += "page " + template.referencePage + " of ";
-        }
-        referenceText += template.referenceBook + '.';
-        $('<p>' + referenceText + '</p>').appendTo($info);
-    }
 
     // Build a link to the monster scaler for creatures, and a button to open the statblock modal.
     // Dynamic creatures store creature/variant/legendary on the node's attributes instead of the template.
@@ -334,6 +357,20 @@ function showInfoForNode(node: WorldNode): void {
             creatureLink += '&legendary=' + creatureLegendary;
         }
         creatureLink += '&name=' + encodeURIComponent(node.name || template.typeName);
+        // Named nodes are unique — pass the unique-npc flag so the monster scaler uses the name in traits
+        if (node.name) {
+            creatureLink += '&unique-npc';
+        }
+        // Pass gender as numeric value for the monster scaler
+        const genderStr = node.attributes?.gender;
+        if (genderStr) {
+            const genderNum = genderStr === 'Male' ? 1 : genderStr === 'Female' ? 2 : 3;
+            creatureLink += '&gender=' + genderNum;
+        }
+        // Pass alignment
+        if (node.attributes?.alignment) {
+            creatureLink += '&alignment=' + encodeURIComponent(node.attributes.alignment);
+        }
         $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
         $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);
     }
@@ -449,21 +486,34 @@ function generateChildrenForNode(node: WorldNode): void {
 function addChildToNode(childType: string, node: WorldNode): void {
     const childNode = generateNode(childType, node);
     node.children!.push(childNode);
-    domObjectForNode(childNode).appendTo(node.domElement!);
+    const $childrenContainer = node.domElement!.children('.node-children');
+    if ($childrenContainer.length) {
+        domObjectForNode(childNode).appendTo($childrenContainer);
+    } else {
+        domObjectForNode(childNode).appendTo(node.domElement!);
+    }
 }
 
-// Generates an HTML details element for a given node
+// Generates a DOM element for a given node in the world tree
 function domObjectForNode(node: WorldNode): JQuery {
-    let summaryText = objectTypes[node.type].typeName;
+    let labelText = objectTypes[node.type].typeName;
     if (node.name && node.name.length) {
-        summaryText += ' (' + node.name + ')';
+        labelText += ' (' + node.name + ')';
     }
-    let $domElement;
-    if (objectTypes[node.type].children) {
-        $domElement = $('<details><summary>' + summaryText + ' <button class="button-generate-children">+ Generate Children</button></summary></details>');
-    } else {
-        $domElement = $('<p>' + summaryText + '</p>');
+    const hasChildren = !!objectTypes[node.type].children;
+    const $domElement = $('<div class="node"></div>');
+
+    if (hasChildren) {
+        $('<span class="node-toggle">▶</span>').appendTo($domElement);
     }
+
+    $('<span class="node-label"></span>').html(labelText).appendTo($domElement);
+
+    if (hasChildren) {
+        $('<button class="button-generate-children">+ Generate Children</button>').appendTo($domElement);
+        $('<div class="node-children"></div>').appendTo($domElement);
+    }
+
     $domElement.data('node', node);
     node.domElement = $domElement;
     return $domElement;
@@ -567,8 +617,9 @@ function createWorldFromJSON(worldJSON: string): void {
 function recursiveGenerateDOMElement(parentNode: WorldNode): JQuery {
     const $domElement = domObjectForNode(parentNode);
     if (parentNode.children) {
+        const $childrenContainer = $domElement.children('.node-children');
         for (const index in parentNode.children) {
-            $domElement.append(recursiveGenerateDOMElement(parentNode.children[index]));
+            $childrenContainer.append(recursiveGenerateDOMElement(parentNode.children[index]));
         }
     }
     return $domElement;

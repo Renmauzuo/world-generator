@@ -1,7 +1,7 @@
 import type { ObjectTypeTemplate } from '../types';
-import { populationDensity, temperatureList, book, alignmentList, elementList } from './constants';
+import { populationDensity, temperatureList, alignmentList, elementList } from './constants';
 import { arrayWithMixed, collectAncestorTags } from '../helpers';
-import { categoryAttributes, deitySetup, avatarSetup } from '../attributeGenerators';
+import { categoryAttributes, deitySetup, avatarSetup, npcSetup, templeSetup } from '../attributeGenerators';
 import { getRegisteredNodes } from '../nodeRegistry';
 import {
     planarClusterNameGenerator,
@@ -25,6 +25,7 @@ import {
     deityNameGenerator,
     avatarNameGenerator
 } from '../nameGenerators';
+import { npcNameGenerator } from '../npcNameGenerators';
 export const objectTypes: Record<string, ObjectTypeTemplate> = {
     // Multiverse is the ultimate root object
     multiverse: {
@@ -1104,6 +1105,9 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     },
     temple: {
         typeName: "Temple",
+        nameGenerator: (node) => 'Temple of ' + (node.attributes?.worship || 'the Divine'),
+        attributes: { worship: '' },
+        customSetup: (node) => templeSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
         children: [
             { type: 'npcAcolyte', min: 1, max: 20 },
             { type: 'npcPriest', min: 0, max: 2 }
@@ -1523,13 +1527,21 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
     // NPCs
     npcAcolyte: {
         typeName: "Acolyte",
-        referenceBook: book.monsterManual,
-        referencePage: 342
+        nameGenerator: npcNameGenerator,
+        creature: "priest",
+        variant: "healer",
+        inheritAttributes: ["worship"],
+        customSetup: (node) => npcSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
+        attributes: { challengeRating: [.25, .5, 1], worship: '', alignment: '' }
     },
     npcPriest: {
         typeName: "Priest",
+        nameGenerator: npcNameGenerator,
         creature: "priest",
-        attributes: { challengeRating: { min: 2, max: 5 } }
+        variant: "healer",
+        inheritAttributes: ["worship"],
+        customSetup: (node) => npcSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
+        attributes: { challengeRating: { min: 2, max: 5 }, worship: '', alignment: '' }
     },
 
     // Wolves

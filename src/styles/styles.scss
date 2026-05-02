@@ -30,6 +30,35 @@ details, #generation-container p {
     padding-left: 16px;
 }
 
+.node {
+    padding-left: 16px;
+}
+
+.node-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: inline-block;
+    width: 1.2em;
+    font-size: 0.9em;
+}
+
+.node-label {
+    cursor: pointer;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.node-children {
+    display: none;
+}
+
+.button-generate-children {
+    margin-left: 8px;
+    font-size: 0.8em;
+}
+
 h2 {
     margin-top: 0;
 }
@@ -43,7 +72,7 @@ h2 {
     overflow-y: auto;
 }
 
-#generation-container > details {
+#generation-container > .node {
     padding-left: 0;
 }
 
@@ -137,4 +166,12 @@ input, select, label, button {
             text-align: right;
         }
     }
+}
+
+#info-panel textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+    font-size: inherit;
 }

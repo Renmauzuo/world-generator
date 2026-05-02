@@ -3,9 +3,10 @@ import { populationDensity, alignmentList, elementList, temperatureList, races }
 import { weightedRand, rand, collectAncestorTags } from './helpers';
 import { averageStats } from '@toolkit5e/base';
 import { monsterList } from '@toolkit5e/monster-scaler';
+import { generateNpcDescription } from './npcNameGenerators';
 
-/** All valid Challenge Rating values, derived from the averageStats table. */
-const challengeRatingList: number[] = Object.keys(averageStats).map(Number);
+/** All valid Challenge Rating values, derived from the averageStats table, sorted numerically. */
+const challengeRatingList: number[] = Object.keys(averageStats).map(Number).sort((a, b) => a - b);
 
 export function populationDensityValue(node: WorldNode): string {
     if (node.parent?.attributes?.populationDensity) {
@@ -93,7 +94,11 @@ export const attributeEditors: Record<string, any> = {
         populationDensity.average,
         populationDensity.high
     ],
-    challengeRating: challengeRatingList
+    challengeRating: challengeRatingList,
+    alignment: alignmentList,
+    gender: ['Male', 'Female', 'Non-binary'],
+    race: Object.keys(races),
+    description: 'textarea'
 };
 
 /** Human-readable labels for attribute keys. */
@@ -102,10 +107,14 @@ export const labels: Record<string, string> = {
     racialDemographics: "Racial Demographics",
     dominantRace: "Dominant Race",
     challengeRating: "Challenge Rating",
+    alignment: "Alignment",
     domain: "Domain",
     creature: "Creature",
     variant: "Variant",
     deityName: "Deity",
+    race: "Race",
+    gender: "Gender",
+    worship: "Worships",
     // Race names for demographics display
     dragonborn: "Dragonborn",
     dwarf: "Dwarf",
@@ -117,6 +126,41 @@ export const labels: Record<string, string> = {
     human: "Human",
     tiefling: "Tiefling"
 };
+
+/**
+ * Selects a race for an NPC based on the nearest ancestor's racial demographics.
+ * Walks up the parent chain to find racialDemographics, then does a weighted random pick.
+ * Returns the race key string (e.g. 'human', 'dwarf').
+ */
+export function selectNpcRace(node: WorldNode): string {
+    // Walk up the parent chain to find racial demographics
+    let current: WorldNode | undefined = node.parent;
+    let demographics: Record<string, number> | undefined;
+    while (current) {
+        if (current.attributes?.racialDemographics) {
+            demographics = current.attributes.racialDemographics;
+            break;
+        }
+        current = current.parent;
+    }
+
+    if (demographics) {
+        // Filter out races with 0 weight
+        const eligible: Record<string, number> = {};
+        for (const race in demographics) {
+            if (demographics[race] > 0) {
+                eligible[race] = demographics[race];
+            }
+        }
+        if (Object.keys(eligible).length > 0) {
+            return weightedRand(eligible);
+        }
+    }
+
+    // Fallback: pick from all races equally
+    const allRaces = Object.keys(races);
+    return allRaces[rand(0, allRaces.length - 1)];
+}
 
 /**
  * Deity domain definitions. Each domain has:
@@ -688,4 +732,137 @@ function selectDomainByTags(alignment: string, element: string, tags: Set<string
 
     // Fallback to standard selection
     return selectDeityDomain(alignment, element);
+}
+
+/**
+ * Selects an alignment for an NPC based on their worship and race.
+ *
+ * If the NPC worships a named deity, the alignment is derived from that deity's alignment.
+ * If the NPC worships a domain, the alignment is picked from alignments compatible with that domain.
+ * If the NPC worships an alignment dedication (e.g. "Lawful Good"), that alignment is used directly.
+ * Otherwise, a random alignment is selected with optional racial bias.
+ *
+ * @param worship - The NPC's worship string (deity name, domain, or alignment dedication)
+ * @param race - The NPC's race key
+ * @param deities - Array of existing deity nodes from the registry
+ * @returns An alignment string from alignmentList
+ */
+function selectNpcAlignment(worship: string, race: string, deities: WorldNode[]): string {
+    // Check if worship matches a deity name — use that deity's alignment
+    if (deities.length > 0) {
+        const matchedDeity = deities.find(d => (d.name ?? d.type) === worship);
+        if (matchedDeity?.attributes?.alignment) {
+            return matchedDeity.attributes.alignment;
+        }
+    }
+
+    // Check if worship matches an alignment string directly (e.g. "Lawful Good")
+    if (alignmentList.includes(worship)) {
+        return worship;
+    }
+
+    // Check if worship matches an alignment dedication phrase
+    const dedicationToAlignment: Record<string, string[]> = {
+        'Law and Order': ['Lawful Good', 'Lawful Neutral'],
+        'the Balance': ['True Neutral', 'Neutral Good', 'Lawful Neutral', 'Chaotic Neutral'],
+        'Freedom': ['Chaotic Good', 'Chaotic Neutral'],
+        'the Greater Good': ['Lawful Good', 'Neutral Good', 'Chaotic Good'],
+        'the Natural Order': ['True Neutral', 'Neutral Good']
+    };
+    if (dedicationToAlignment[worship]) {
+        const options = dedicationToAlignment[worship];
+        return options[rand(0, options.length - 1)];
+    }
+
+    // Check if worship matches a domain name — pick from compatible alignments
+    const domainEntry = Object.entries(deityDomains).find(([_key, d]) => d.name === worship);
+    if (domainEntry) {
+        const [, domain] = domainEntry;
+        const compatible = alignmentList.filter(a => {
+            if (domain.alignments.length > 0 && !domain.alignments.some(ax => a.includes(ax))) return false;
+            if (domain.excludeAlignments.length > 0 && domain.excludeAlignments.some(ax => a.includes(ax))) return false;
+            return true;
+        });
+        if (compatible.length > 0) {
+            return compatible[rand(0, compatible.length - 1)];
+        }
+    }
+
+    // Fallback: random alignment with racial bias
+    const raceData = races[race];
+    if (raceData?.alignmentBias) {
+        return weightedRand(raceData.alignmentBias);
+    }
+
+    // No bias (e.g. human) — equal probability
+    return alignmentList[rand(0, alignmentList.length - 1)];
+}
+
+/**
+ * Custom setup for NPC nodes. Selects a race from the nearest ancestor's racial
+ * demographics, randomizes gender, and selects a worship target if not inherited.
+ * @param node - The NPC node
+ * @param deities - Array of existing deity nodes from the registry
+ */
+export function npcSetup(node: WorldNode, deities: WorldNode[]): void {
+    node.attributes!.race = selectNpcRace(node);
+    const genderRoll = rand(1, 20);
+    node.attributes!.gender = genderRoll <= 9 ? 'Male' : genderRoll <= 18 ? 'Female' : 'Non-binary';
+    node.attributes!.description = generateNpcDescription();
+
+    // Inherit worship from parent (temple) if available, otherwise select own
+    if (!node.attributes!.worship) {
+        node.attributes!.worship = selectWorship(deities);
+    }
+
+    // Select alignment based on worship and race
+    node.attributes!.alignment = selectNpcAlignment(node.attributes!.worship, node.attributes!.race, deities);
+}
+
+/**
+ * Selects a worship target for an NPC or temple. Checks the node registry for
+ * existing deities and picks one, or falls back to a domain or alignment dedication.
+ *
+ * @param deities - Array of existing deity nodes from the registry
+ * @returns A worship string — either a deity name, domain, or alignment
+ */
+export function selectWorship(deities: WorldNode[]): string {
+    // 70% chance of a named deity if any exist, 30% chance of domain/alignment dedication
+    if (deities.length > 0 && rand(1, 10) <= 7) {
+        // Weight toward higher-tier deities
+        const weights: Record<string, number> = {};
+        for (let i = 0; i < deities.length; i++) {
+            const tier = deities[i].type;
+            weights[String(i)] = tier === 'greaterDeity' ? 10 : tier === 'lesserDeity' ? 5 : 2;
+        }
+        const selectedIndex = parseInt(weightedRand(weights), 10);
+        const deity = deities[selectedIndex];
+        return deity.name ?? deity.type;
+    }
+
+    // Fall back to a domain or alignment dedication
+    if (rand(1, 2) === 1) {
+        // Domain dedication — "the Light", "Nature", "War", etc.
+        const domainKeys = Object.keys(deityDomains);
+        const domainKey = domainKeys[rand(0, domainKeys.length - 1)];
+        return deityDomains[domainKey].name;
+    } else {
+        // Alignment dedication — "Lawful Good", "the Balance", etc.
+        const dedications = [
+            'Lawful Good', 'Neutral Good', 'Chaotic Good',
+            'Law and Order', 'the Balance', 'Freedom',
+            'the Greater Good', 'the Natural Order'
+        ];
+        return dedications[rand(0, dedications.length - 1)];
+    }
+}
+
+/**
+ * Custom setup for temple nodes. Selects a worship target that all children
+ * (acolytes, priests) will inherit.
+ * @param node - The temple node
+ * @param deities - Array of existing deity nodes from the registry
+ */
+export function templeSetup(node: WorldNode, deities: WorldNode[]): void {
+    node.attributes!.worship = selectWorship(deities);
 }

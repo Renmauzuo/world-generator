@@ -1,6 +1,6 @@
 import type { WorldNode } from './types';
-import { rand, randFromArray, weightedRand } from './helpers';
-import { deityDomains } from './attributeGenerators';
+import { rand, randFromArray } from './helpers';
+import { generateTitle } from './titleGenerator';
 
 // Sometimes an element's name will impact a sibling. This stores the queued name.
 export let queuedName: string | null = null;
@@ -286,43 +286,17 @@ export function dragonNameGenerator(node: WorldNode): string {
     const titleChance = cr < 5 ? 0 : cr < 12 ? 0.2 : cr < 18 ? 0.6 : 0.9;
 
     if (Math.random() < titleChance) {
-        const alignment: string = node.attributes?.alignment ?? '';
-        const isEvil = alignment.includes('Evil');
+        // Extract dragon color from the node type (e.g. 'dragonLairRed' → 'red')
+        const colorMatch = node.type.match(/^dragonLair(\w+)$/);
+        const dragonColor = colorMatch ? colorMatch[1].toLowerCase() : undefined;
 
-        // Alignment-based titles
-        const evilTitles = [
-            'the Devourer', 'the Destroyer', 'the Terrible', 'the Cruel', 'the Merciless',
-            'the Ravenous', 'the Tyrant', 'the Scourge', 'the Dread', 'the Ruinous',
-            'the Blighted', 'the Wrathful', 'the Undying', 'the Pitiless', 'the Forsaken',
-            'Bane of Kings', 'the Desolator', 'the Nightbringer'
-        ];
-        const goodTitles = [
-            'the Protector', 'the Wise', 'the Noble', 'the Guardian', 'the Benevolent',
-            'the Radiant', 'the Just', 'the Merciful', 'the Eternal', 'the Vigilant',
-            'the Shining', 'the Steadfast', 'the Peacekeeper', 'the Sage', 'the Gracious',
-            'Shield of the Realm', 'the Dawnbringer', 'the Stormcaller'
-        ];
-
-        // Element-based titles keyed by dragon color
-        const elementTitles: Record<string, string[]> = {
-            dragonLairRed:    ['the Inferno', 'the Volcanic', 'the Ashen', 'the Emberlord', 'the Flamecrown', 'the Scorching'],
-            dragonLairGold:   ['the Inferno', 'the Sunfire', 'the Emberlord', 'the Flamecrown', 'the Resplendent', 'the Blazing'],
-            dragonLairBlack:  ['the Corrosive', 'the Venomous', 'the Caustic', 'the Mire Lord', 'the Festering', 'the Acidmaw'],
-            dragonLairCopper: ['the Corrosive', 'the Caustic', 'the Acidmaw', 'the Trickster', 'the Riddler', 'the Cunning'],
-            dragonLairBlue:   ['the Tempest', 'the Stormborn', 'the Thunderlord', 'the Lightning', 'the Stormbringer', 'the Voltaic'],
-            dragonLairBronze: ['the Tempest', 'the Stormborn', 'the Thunderlord', 'the Tidecaller', 'the Stormbringer', 'the Waveguard'],
-            dragonLairGreen:  ['the Toxic', 'the Venomous', 'the Miasma', 'the Blightbreath', 'the Noxious', 'the Whisperer'],
-            dragonLairWhite:  ['the Frozen', 'the Glacial', 'the Frostborn', 'the Rimeclaw', 'the Blizzard', 'the Wintermaw'],
-            dragonLairSilver: ['the Frozen', 'the Glacial', 'the Frostborn', 'the Winterguard', 'the Icewind', 'the Shimmering'],
-            dragonLairBrass:  ['the Scorching', 'the Sandstorm', 'the Dunestalker', 'the Sunbaked', 'the Windtalker', 'the Parched'],
-        };
-
-        // Combine alignment and element pools, then pick one
-        const alignmentPool = isEvil ? evilTitles : goodTitles;
-        const elementPool = elementTitles[node.type] ?? [];
-        const combinedPool = [...alignmentPool, ...elementPool];
-
-        name += ', ' + randFromArray(combinedPool);
+        const title = generateTitle({
+            alignment: node.attributes?.alignment,
+            cr,
+            creatureType: 'dragon',
+            dragonColor
+        });
+        name += ', ' + title;
     }
 
     return name;
@@ -341,12 +315,22 @@ export function extraplanarNameGenerator(node: WorldNode): string {
     const ends = ['el', 'iel', 'ael', 'ius', 'oth', 'us', 'is', 'al', 'on', 'as', 'ax', 'ur', 'em', 'im'];
 
     const cr = node.attributes?.challengeRating ?? 1;
+    const alignment: string = node.attributes?.alignment ?? '';
+
+    // Infer creature type from alignment for title generation
+    const isGood = alignment.includes('Good');
+    const isEvil = alignment.includes('Evil');
+    const creatureType = isGood ? 'celestial' : isEvil ? 'fiend' : undefined;
+
+    const titleOptions = { alignment, cr, creatureType };
 
     // Title-only chance: higher for very high CR (ancient beings)
     const titleOnlyChance = cr >= 15 ? 0.15 : cr >= 10 ? 0.05 : 0;
 
     if (Math.random() < titleOnlyChance) {
-        return 'The ' + randFromArray(getTitlePool(node, cr));
+        const title = generateTitle(titleOptions);
+        // Capitalize if it doesn't already start with a capital
+        return title.startsWith('of ') ? 'The One ' + title : 'The ' + title.replace(/^the /, '');
     }
 
     // Build the proper name
@@ -361,45 +345,16 @@ export function extraplanarNameGenerator(node: WorldNode): string {
     const titleChance = cr < 3 ? 0.1 : cr < 8 ? 0.3 : cr < 14 ? 0.6 : 0.85;
 
     if (Math.random() < titleChance) {
-        name += ', the ' + randFromArray(getTitlePool(node, cr));
+        const title = generateTitle(titleOptions);
+        // Titles starting with "of" use a space, others use ", the"
+        if (title.startsWith('of ')) {
+            name += ' ' + title;
+        } else {
+            name += ', ' + title;
+        }
     }
 
     return name;
-}
-
-/** Returns the appropriate title pool based on creature alignment and CR. */
-function getTitlePool(node: WorldNode, cr: number): string[] {
-    const alignment: string = node.attributes?.alignment ?? '';
-    const isGood = alignment.includes('Good');
-    const isEvil = alignment.includes('Evil');
-    const isLawful = alignment.includes('Lawful');
-    const isChaotic = alignment.includes('Chaotic');
-
-    // Celestial (good-aligned)
-    if (isGood) {
-        if (cr < 5) return ['Gentle', 'Humble', 'Quiet', 'Watchful', 'Patient', 'Faithful'];
-        if (cr < 12) return ['Radiant', 'Merciful', 'Resolute', 'Shining', 'Valiant', 'Blessed', 'Hallowed', 'Anointed'];
-        return ['Watchful Guardian', 'Shield of the Faithful', 'Light of Heaven', 'Voice of the Divine', 'Eternal Sentinel', 'Herald of Dawn', 'Sword of Justice'];
-    }
-
-    // Demonic (chaotic evil)
-    if (isChaotic && isEvil) {
-        if (cr < 5) return ['Wretched', 'Crawling', 'Pitiful', 'Sniveling', 'Craven', 'Lurking'];
-        if (cr < 12) return ['Ravenous', 'Bloodthirsty', 'Savage', 'Vile', 'Corruptor', 'Defiler', 'Flayer', 'Tormentor'];
-        return ['Devourer of Worlds', 'Bringer of Ruin', 'Lord of Carnage', 'Scourge of the Abyss', 'Undying Horror', 'Worldbreaker', 'Abyssal Tyrant'];
-    }
-
-    // Infernal (lawful evil) or other evil
-    if (isEvil) {
-        if (cr < 5) return ['Lowly', 'Obedient', 'Dutiful', 'Cringing', 'Servile', 'Minor'];
-        if (cr < 12) return ['Cunning', 'Ruthless', 'Calculating', 'Merciless', 'Deceiver', 'Tempter', 'Schemer', 'Enforcer'];
-        return ['Lord of the Ninth', 'Archfiend', 'Master of Chains', 'Prince of Lies', 'Duke of Perdition', 'Infernal Sovereign', 'Keeper of Contracts'];
-    }
-
-    // Neutral or other — generic titles
-    if (cr < 5) return ['Wandering', 'Silent', 'Unseen', 'Drifting'];
-    if (cr < 12) return ['Enigmatic', 'Inscrutable', 'Formidable', 'Relentless'];
-    return ['Ancient One', 'Eternal', 'Unfathomable', 'Primordial'];
 }
 
 /**
@@ -423,12 +378,13 @@ export function feyNameGenerator(node: WorldNode): string {
     const titleChance = cr < 3 ? 0.05 : cr < 8 ? 0.2 : 0.5;
 
     if (Math.random() < titleChance) {
-        const titles = [
-            'of the Glade', 'of the Moonpool', 'Thornweaver', 'Dewdancer', 'Mistwalker',
-            'of the Silver Brook', 'Songweaver', 'Dreamtender', 'of the Old Wood',
-            'Starbloom', 'Willowsong', 'of the Twilight Court', 'Leafwhisper'
-        ];
-        name += ' ' + randFromArray(titles);
+        const title = generateTitle({ cr, creatureType: 'fey' });
+        // Fey titles starting with "of" use a space, others use comma
+        if (title.startsWith('of ')) {
+            name += ' ' + title;
+        } else {
+            name += ', ' + title;
+        }
     }
 
     return name;
@@ -447,23 +403,21 @@ export function deityNameGenerator(node: WorldNode): string {
     const cr = node.attributes?.challengeRating ?? 20;
     const alignment: string = node.attributes?.alignment ?? '';
     const element: string = node.attributes?.element ?? '';
-    const isGood = alignment.includes('Good');
-    const isEvil = alignment.includes('Evil');
-    const isLawful = alignment.includes('Lawful');
-    const isChaotic = alignment.includes('Chaotic');
 
     // Determine deity tier from node type for title selection
     const isGreater = node.type === 'greaterDeity';
     const isLesser = node.type === 'lesserDeity';
+    const tier = isGreater ? 'greaterDeity' as const : isLesser ? 'lesserDeity' as const : 'demigod' as const;
 
     const domainName: string = node.attributes?.domain ?? '';
-    const titlePool = buildDeityTitlePool(isGood, isEvil, isLawful, isChaotic, isGreater, isLesser, element, domainName);
+    const titleOptions = { alignment, element, cr, domain: domainName, tier };
 
     // Title-only chance: higher for greater deities
     const titleOnlyChance = isGreater ? 0.15 : isLesser ? 0.08 : 0.03;
 
     if (Math.random() < titleOnlyChance) {
-        return 'The ' + randFromArray(titlePool);
+        const title = generateTitle(titleOptions);
+        return title.startsWith('of ') ? 'The One ' + title : 'The ' + title.replace(/^the /, '');
     }
 
     // Ascended mortal chance: use the base creature's name generator
@@ -475,7 +429,7 @@ export function deityNameGenerator(node: WorldNode): string {
         const creatureName = generateCreatureDerivedName(node, baseCreature);
         if (creatureName) {
             // Ascended mortals always get a divine title
-            return creatureName + ', ' + randFromArray(titlePool);
+            return creatureName + ', ' + generateTitle(titleOptions);
         }
     }
 
@@ -486,7 +440,7 @@ export function deityNameGenerator(node: WorldNode): string {
     const titleChance = isGreater ? 0.95 : isLesser ? 0.85 : 0.7;
 
     if (Math.random() < titleChance) {
-        return name + ', ' + randFromArray(titlePool);
+        return name + ', ' + generateTitle(titleOptions);
     }
 
     return name;
@@ -541,159 +495,6 @@ function generateCreatureDerivedName(node: WorldNode, baseCreature: string): str
     }
     // Fallback: use the divine name generator
     return null;
-}
-
-/**
- * Builds a deity title pool by starting with universal titles and conditionally
- * adding more based on tier, alignment axis, element, and domain. The result is a single
- * combined array from which one title is randomly selected.
- */
-function buildDeityTitlePool(
-    isGood: boolean, isEvil: boolean, isLawful: boolean, isChaotic: boolean,
-    isGreater: boolean, isLesser: boolean, element: string, domain: string
-): string[] {
-    // Universal titles — always available regardless of alignment or element
-    const pool = [
-        'the Ancient', 'the Undying', 'the Ascendant', 'the Dreaming',
-        'the Veiled', 'the Silent', 'the Awakened', 'the Unbroken',
-        'the Forgotten', 'the Nameless', 'the Shrouded'
-    ];
-
-    // --- Tier titles ---
-    if (isGreater) {
-        pool.push(
-            'the Almighty', 'the Omniscient', 'the Infinite', 'the Absolute',
-            'Creator of Worlds', 'the First and Last', 'the Undying Flame',
-            'the Supreme', 'the All-Seeing', 'Shaper of Realms'
-        );
-    } else if (isLesser) {
-        pool.push(
-            'the Exalted', 'the Anointed', 'the Chosen', 'the Crowned',
-            'the Sovereign', 'the Enthroned', 'the Hallowed'
-        );
-    } else {
-        // Demigod
-        pool.push(
-            'the Risen', 'the Reborn', 'the Twice-Born', 'the Ascended',
-            'the Blessed', 'the Touched', 'the Awakened One'
-        );
-    }
-
-    // --- Good / Evil axis ---
-    if (isGood) {
-        pool.push(
-            'the Radiant', 'the Merciful', 'the Benevolent', 'the Compassionate',
-            'the Lifegiver', 'the Healer', 'the Hopebringer', 'the Gracious',
-            'Shield of the Faithful', 'the Peacemaker', 'the Nurturing',
-            'the Dawnbringer', 'the Lightbearer', 'the Serene'
-        );
-    }
-    if (isEvil) {
-        pool.push(
-            'the Malevolent', 'the Blighted', 'the Withering', 'the Pestilent',
-            'the Insidious', 'the Profane', 'the Nightbringer', 'the Forsaken',
-            'Lord of Decay', 'the Corrosive', 'the Devourer', 'the Ravenous',
-            'Bringer of Ruin', 'the Defiler'
-        );
-    }
-
-    // --- Lawful / Chaotic axis ---
-    if (isLawful) {
-        pool.push(
-            'the Just', 'Keeper of Oaths', 'the Righteous', 'the Iron-Willed',
-            'the Arbiter', 'the Unyielding', 'the Ordered',
-            'Master of Laws', 'the Immutable'
-        );
-    }
-    if (isChaotic) {
-        pool.push(
-            'the Untamed', 'the Mercurial', 'the Wild', 'Breaker of Chains',
-            'the Unpredictable', 'the Tempestuous', 'the Free',
-            'the Unbound', 'the Ever-Changing'
-        );
-    }
-
-    // --- Combined alignment titles (more specific) ---
-    if (isGood && isLawful) {
-        pool.push(
-            'Lord of Light', 'the Redeemer', 'the Hallowed Sovereign',
-            'the Paladin Eternal', 'the Shining Judge'
-        );
-    }
-    if (isGood && isChaotic) {
-        pool.push(
-            'the Liberator', 'the Windborne', 'the Joyous',
-            'the Wandering Light', 'the Free Spirit', 'the Stormblessed'
-        );
-    }
-    if (isEvil && isLawful) {
-        pool.push(
-            'the Tyrant', 'Lord of Chains', 'the Iron Sovereign',
-            'Master of Contracts', 'the Subjugator', 'the Dread Sovereign',
-            'Keeper of Souls', 'the Dark Arbiter'
-        );
-    }
-    if (isEvil && isChaotic) {
-        pool.push(
-            'the Destroyer', 'the Ruinous', 'Lord of Carnage',
-            'the Worldbreaker', 'the Corruptor', 'the Insatiable',
-            'the Abyssal Lord', 'the Mad God'
-        );
-    }
-
-    // --- Element titles ---
-    switch (element) {
-        case 'Fire':
-            pool.push(
-                'the Blazing', 'the Emberlord', 'the Ashen', 'Lord of Cinders',
-                'the Scorching', 'the Flamecrown', 'the Inferno',
-                'the Molten', 'Keeper of the Eternal Flame', 'the Volcanic'
-            );
-            break;
-        case 'Water':
-            pool.push(
-                'the Tidecaller', 'Lord of the Deep', 'the Drowned',
-                'the Abyssal', 'the Wavecrown', 'the Unfathomed',
-                'the Tempest', 'Keeper of the Depths', 'the Maelstrom', 'the Torrential'
-            );
-            break;
-        case 'Air':
-            pool.push(
-                'the Stormborn', 'Lord of Winds', 'the Thunderlord',
-                'the Cloudwalker', 'the Galeforce', 'the Skyborn',
-                'the Zephyr', 'Keeper of Storms', 'the Breathless', 'the Howling'
-            );
-            break;
-        case 'Earth':
-            pool.push(
-                'the Stonelord', 'the Unyielding Mountain', 'the Crystalborn',
-                'Lord of the Deep Earth', 'the Ironbound', 'the Quaking',
-                'the Petrified', 'Keeper of the Roots', 'the Monolith', 'the Earthshaker'
-            );
-            break;
-        case 'Positive Energy':
-            pool.push(
-                'the Resplendent', 'Lord of Radiance', 'the Lifespring',
-                'the Luminous', 'the Everbloom', 'the Sunforged',
-                'Keeper of Souls', 'the Incandescent', 'the Vital', 'the Dawning'
-            );
-            break;
-        case 'Negative Energy':
-            pool.push(
-                'the Deathless', 'Lord of the Void', 'the Entombed',
-                'the Hollow', 'the Soulreaper', 'the Withered',
-                'Keeper of the Dead', 'the Necrotic', 'the Hungering Void', 'the Pale'
-            );
-            break;
-    }
-
-    // --- Domain titles ---
-    const domainEntry = Object.values(deityDomains).find(d => d.name === domain);
-    if (domainEntry?.titles) {
-        pool.push(...domainEntry.titles);
-    }
-
-    return pool;
 }
 
 /**

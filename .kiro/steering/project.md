@@ -34,14 +34,20 @@ $env:NODE_ENV="development"; npx gulp build
 ```
 src/scripts/
 ├── types.ts                  # Shared interfaces (WorldNode, ObjectTypeTemplate, etc.)
-├── helpers.ts                # Pure utility functions (rand, weightedRand, operators, etc.)
-├── nameGenerators.ts         # Name generator functions + queuedName state
-├── attributeGenerators.ts    # Attribute value generators, categoryAttributes, attributeEditors, labels, deity/avatar setup
+├── helpers.ts                # Pure utility functions (rand, weightedRand, collectAncestorTags, etc.)
+├── nameGenerators.ts         # Location/creature name generators + queuedName state
+├── titleGenerator.ts         # Unified title generator — layered pool builder used by all name generators
+├── npcNameGenerators.ts      # NPC name generators — master dispatcher + 9 racial generators
+├── attributeGenerators.ts    # Attribute value generators, categoryAttributes, attributeEditors, labels, deity/avatar/NPC setup
 ├── nodeRegistry.ts           # Global node registry for cross-tree references (deities, etc.)
 ├── scripts.ts                # Entry point — DOM logic, event handlers, save/load
 └── data/
-    ├── constants.ts          # Shared data constants (populationDensity, temperatureList, etc.)
-    └── objectTypes.ts        # The full objectTypes map + category attribute injection loop
+    ├── constants.ts          # Shared data constants (populationDensity, temperatureList, races, etc.)
+    ├── objectTypes.ts        # The full objectTypes map + category attribute injection loop
+    └── presets/
+        ├── index.ts          # Preset interface + registry array
+        ├── forgottenRealms.ts # Forgotten Realms world tree
+        └── everquest.ts      # EverQuest world tree
 ```
 
 The Rollup entry point is `src/scripts/scripts.ts` only — other files are imported as modules, not processed separately.
@@ -65,13 +71,17 @@ The data-driven definition of every node type. Each entry defines:
 - `customSetup` — optional function called after attributes are generated and before the name generator. Used for complex multi-attribute logic where derived attributes depend on other attributes (e.g. deity domain → creature selection → variant).
 - `registered` — when true, nodes of this type are added to the global node registry on creation. Other nodes can query the registry for cross-tree references (e.g. avatars referencing deities).
 - `tags` — static metadata tags (e.g. `['water']`, `['forest', 'cold']`) describing what this type represents. Not stored on nodes or editable — used by code for context-aware decisions like avatar deity selection based on biome. Tags are collected from the ancestor chain via `collectAncestorTags()`.
-- `referenceBook` / `referencePage` — reference text shown in info panel
 
 ### Creature Alignment
 Non-beast creature nodes have an `alignment` attribute (e.g. `'Chaotic Evil'`, `'Lawful Good'`). This is used by name generators to select appropriate titles without maintaining hardcoded type lists. The alignment strings match the planar system format.
 
 ### Category Attributes
-Types that declare `categories` automatically get attributes injected from `categoryAttributes` in `attributeGenerators.ts`. This happens at module load time in `objectTypes.ts` via a post-definition loop.
+Types that declare `categories` automatically get attributes injected from `categoryAttributes` in `attributeGenerators.ts`. This happens at module load time in `objectTypes.ts` via a post-definition loop. Type-specific attributes take precedence — category attributes are only added if not already defined on the type.
+
+Current categories:
+- `geography` — populationDensity, racialDemographics, temperature
+- `plane` — alignment, element
+- `settlement` — racialDemographics
 
 ### Child Generation
 Children are generated on-demand via a "Generate Children" button. If a generation pass produces zero children (all `min: 0` rolls came up 0), it retries up to 3 times to avoid empty results.
@@ -108,11 +118,15 @@ Presets also serve as a **litmus test for the generator's expressiveness**. If a
 
 ## Known TODOs / In-Flight
 
-- **`races` / `racialDemographics`** will likely be removed — the project is moving toward shared npm packages for this kind of data
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
 - **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
 - Remaining `//TODO` stubs: moons/celestial bodies, coastal settlement children
-- **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. Major categories remaining: giants, monstrosities (owlbear, griffon, manticore, etc.), humanoid races (goblin, orc, kobold), NPC statblocks, constructs, oozes, and more undead (vampire, lich).
+- **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. Recently added: frost giant, ogre, goblin (with hobgoblin/bugbear variants). Major categories remaining: other giants, monstrosities, more humanoid races (orc, kobold, gnoll), NPC statblocks, constructs, oozes, more undead.
+- **Worship weighting** — deity selection for temples/NPCs could be weighted by geography (sea god near coast) and racial demographics (nature god in elven areas). Core system works, weighting is a refinement.
+- **Inheritance rethink** — `inheritAttributes` was designed for simple attribute copying but is now used for nuanced things like worship. Consider having `customSetup` handle inheritance explicitly by walking the parent chain, rather than requiring placeholder attributes.
+- **NPC description pools** — current pools are a good start but could be expanded. Consider race-specific descriptions (dwarven braids, elven grace, etc.) and profession-specific ones (priest-specific religious items, guard-specific armor details).
+- **`referenceBook`/`referencePage` removed** — these properties were removed from `ObjectTypeTemplate` since the monster-scaler link and statblock modal make book references redundant.
+- **`book` constant in `constants.ts`** — may be unused now, can be cleaned up.
 
 ## Content Coverage
 
@@ -181,6 +195,43 @@ Undead: shadow haunts, skeleton crypts, zombie hordes, ghoul packs.
 
 Fiends: demon hordes, demon warbands, devil patrols, devil legions.
 
+Humanoids: goblin warbands (with runt/veteran/chief hierarchy), frost giant patrols, ogre gangs.
+
+### NPCs
+NPC types use `customSetup` (`npcSetup`) to select race, gender, worship, and alignment at generation time.
+
+**Race selection** (`selectNpcRace`): walks up the parent chain looking for `racialDemographics`, then does a weighted random pick. Falls back to equal probability across all races if no demographics found.
+
+**Racial demographics**: stored as `Record<string, number>` on geography and settlement nodes. Generated fresh (0–30 per race) at the top level, inherited with ±10 variation by children. A race at 0 stays at 0 in all descendants (that race doesn't exist in this region). All-zero guard ensures at least one race has presence.
+
+**Gender**: Male (45%), Female (45%), Non-binary (10%). Stored as a string on the node.
+
+**Worship**: NPCs may worship a named deity (from the registry), a divine domain ("War", "Nature"), or an alignment cause ("Lawful Good", "the Balance"). Temples select worship once via `templeSetup`, and all child NPCs inherit it via `inheritAttributes`. NPCs outside temples select their own.
+
+**Alignment** (`selectNpcAlignment`): derived from worship context. Priority order:
+1. Named deity worship → use that deity's alignment from the registry
+2. Alignment dedication (e.g. "Lawful Good") → use directly
+3. Alignment-adjacent dedication (e.g. "Law and Order") → pick from compatible alignments
+4. Domain worship (e.g. "War") → pick from alignments compatible with that domain's constraints
+5. Fallback → random with racial bias from `RaceData.alignmentBias` (weighted random), or equal probability for races without bias (humans)
+
+Racial alignment biases are defined on `RaceData` in `constants.ts`. Most races lean toward their SRD tendencies (dwarves toward lawful good, elves toward chaotic good, tieflings toward chaotic, etc.). Humans have no bias — equal probability across all alignments.
+
+Alignment is passed to the statblock modal (`statblock.alignment`) and appended as `&alignment=` on the monster scaler link.
+
+**Name generation** (`npcNameGenerator` in `npcNameGenerators.ts`): master dispatcher that reads race and gender, delegates to one of 9 racial generators. Each generator has gendered first name pools and family/clan name pools. Non-binary NPCs draw from either gendered pool randomly. Half-elves draw from both human and elven pools.
+
+Current NPC types: `npcAcolyte` (CR 1/4–1, priest/healer variant), `npcPriest` (CR 2–5, priest/healer variant).
+
+### Info Panel — Special Renderers
+- **Creature/Variant** (dynamic creature nodes): creature dropdown with friendly names from `monsterList`, variant dropdown that rebuilds when creature changes, hidden when no variants exist
+- **Challenge Rating**: always a dropdown of all valid CRs with `stringForCR` display (1/8, 1/4, 1/2, etc.)
+- **Alignment**: dropdown of all 9 standard alignments (from `alignmentList`)
+- **Racial Demographics**: collapsible `<details>` group with a number input per race
+- **Race**: dropdown of all race keys with label display
+- **Gender**: dropdown (Male, Female, Non-binary)
+- Generic select options use `labels` map for display text when available
+
 ### Legendary Creatures
 Rare, high-CR creatures with `legendary: 3` that spawn with legendary resistances and auto-generated legendary actions:
 - **Mythological beasts**: Dread Wolf, Dire Boar, Thunderbird, Broodmother, Megalodon
@@ -191,12 +242,31 @@ Rare, high-CR creatures with `legendary: 3` that spawn with legendary resistance
 - **Angels**: Solar (CR 18–24)
 - **Undead**: Crypt Lord, Dread Wraith
 
+### Title Generator
+`generateTitle(options: TitleOptions)` in `titleGenerator.ts` — a unified title generator that builds a pool from layered sources based on context, then returns a single random title. All creature and deity name generators delegate to this function instead of maintaining their own title pools.
+
+**Pool layers** (each adds titles to the combined pool when the relevant option is provided):
+1. **Generic** — always available: "the Ancient", "the Undying", "the Veiled", etc.
+2. **Power tier** (CR-gated) — humble titles below CR 5, notable at 5+, epic at 12+, cosmic at 20+
+3. **Alignment** — good/evil/lawful/chaotic titles, plus combined axis titles (e.g. lawful evil gets "the Tyrant", "Lord of Chains")
+4. **Element** — fire/water/earth/air/positive/negative energy titles
+5. **Creature type** — dragon, celestial, fiend, undead, fey, elemental, beast, giant, humanoid, plant
+6. **Domain** — pulled from `deityDomains[domain].titles` (domain data stays in `attributeGenerators.ts`)
+7. **Deity tier** — greater/lesser/demigod/avatar-specific titles
+8. **Dragon color** — color-specific element titles (red → fire, white → ice, etc.)
+
+**TitleOptions fields** (all optional): `alignment`, `element`, `cr`, `creatureType`, `domain`, `tier`, `dragonColor`.
+
+Callers control title probability themselves (e.g. dragons scale with CR, deities are nearly guaranteed). The generator just builds the pool and picks — it always returns a title when called.
+
 ### Name Generators
 - `planarNameGenerator` — three formats: title only ("The Realm of Fire"), name only ("Eryslai"), or name + title ("Disia, the Kingdom of Angels"). Planar layers get layer-specific place nouns (Layer, Stratum, Tier, etc.).
-- `dragonNameGenerator` — draconic syllable pools + alignment-based and element-based titles. Title probability scales with CR.
-- `extraplanarNameGenerator` — shared by angels, demons, and devils. Biblical/Enochian syllable pools. Titles vary by alignment (celestial/demonic/infernal) and CR. Small chance of title-only for ancient beings.
-- `deityNameGenerator` — three paths: exotic divine name (most common), creature-derived name (ascended mortal, uses base creature's name generator), or title-only (ancient beings). Titles scale with deity tier and are flavored by alignment. Greater deities get grander titles ("the Almighty", "Creator of Worlds").
-- `feyNameGenerator` — nature-inspired names with optional nature-themed titles.
+- `dragonNameGenerator` — draconic syllable pools + titles via `generateTitle` with alignment, CR, creatureType, and dragonColor. Title probability scales with CR.
+- `extraplanarNameGenerator` — shared by angels, demons, and devils. Biblical/Enochian syllable pools. Titles via `generateTitle` with alignment, CR, and inferred creatureType (celestial/fiend). Small chance of title-only for ancient beings.
+- `deityNameGenerator` — three paths: exotic divine name (most common), creature-derived name (ascended mortal, uses base creature's name generator), or title-only (ancient beings). Titles via `generateTitle` with alignment, element, domain, CR, and deity tier.
+- `avatarNameGenerator` — "Avatar of [Deity Name]" (70%) or "[Own Name], Avatar of [Deity Name]" (30%), with deity name generator fallback for standalone avatars.
+- `npcNameGenerator` (in `npcNameGenerators.ts`) — master dispatcher with 9 racial generators: human (European fantasy), dwarf (Norse/Germanic + clan), elf (melodic/flowing), halfling (English countryside), gnome (whimsical), half-elf (mixed human/elven pools), half-orc (guttural, optional clan), dragonborn (draconic + clan), tiefling (infernal + virtue names).
+- `feyNameGenerator` — nature-inspired names with titles via `generateTitle` with CR and creatureType 'fey'.
 - `forestNameGenerator`, `mountainNameGenerator`, `mountainRangeNameGenerator`, `plainsNameGenerator`, `swampNameGenerator`, `desertNameGenerator`, `savannaNameGenerator`, `forgottenBiomeNameGenerator`, `caveNameGenerator`, `lakeNameGenerator`, `riverNameGenerator`, `continentNameGenerator`.
 
 ### Reskinned Creatures
@@ -221,14 +291,19 @@ Using one `monsterList` entry at different CRs or with different display names:
 - New node types go in `src/scripts/data/objectTypes.ts`
 - New shared constants go in `src/scripts/data/constants.ts`
 - New attribute generator functions go in `src/scripts/attributeGenerators.ts`
-- New name generators go in `src/scripts/nameGenerators.ts`
+- New location/creature name generators go in `src/scripts/nameGenerators.ts`
+- New NPC name generators go in `src/scripts/npcNameGenerators.ts`
 - Node type keys are camelCase (e.g. `coastalCityLarge`, `mammothHerd`)
 - Non-beast creature nodes should have an `alignment` attribute for name generator compatibility
 - The hierarchy is: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean (or Planar Layer) → Region/Biome → Locality → Point of Interest / Creature
 - Creatures and creature groups should spawn inside biomes/localities, not directly on regions or layers
-- Dynamic creature types (like deities) use `dynamicCreature: true` on the template and store `creature`, `variant`, and `legendary` as node attributes. The `customSetup` function in `attributeGenerators.ts` handles all derived attribute logic (domain selection, creature selection, variant, legendary). The statblock modal and link builder check node attributes when `dynamicCreature` is true.
-- `customSetup` runs after attribute generation and before the name generator. It's the right place for any logic that needs to read resolved attributes and set derived ones. Deity setup (`deitySetup`) is the first user of this pattern.
-- Attribute generation now handles primitive values (string, number, boolean) as fixed defaults — useful for fallback values when inheritance fails.
+- Dynamic creature types (like deities) use `dynamicCreature: true` on the template and store `creature`, `variant`, and `legendary` as node attributes. The statblock modal and link builder check node attributes when `dynamicCreature` is true.
+- `customSetup` runs after attribute generation and before the name generator. It's the right place for any logic that needs to read resolved attributes and set derived ones. Used by deities (`deitySetup`), avatars (`avatarSetup`), NPCs (`npcSetup`), and temples (`templeSetup`).
+- Attribute generation handles primitive values (string, number, boolean) as fixed defaults — useful for fallback values when inheritance fails.
+- Category attribute injection uses "set if not already defined" — type-specific attributes take precedence over category defaults.
+- The tree UI uses custom `div.node` markup with separate click targets: `.node-toggle` for expand/collapse, `.node-label` for selection. Not `<details>`/`<summary>`.
+- `attributeEditors` overrides the default editor for specific attributes (e.g. CR → dropdown, race → dropdown, gender → dropdown). The generic select renderer uses the `labels` map for display text.
+- **Design philosophy**: data defines what exists, code defines what makes sense. `objectTypes` is the backbone (what can spawn where), while `customSetup` functions, the dynamic creature scorer, and tag-based selection add the intelligence that makes generated worlds feel coherent.
 
 ## Steering Maintenance
 

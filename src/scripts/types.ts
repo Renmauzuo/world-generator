@@ -37,8 +37,6 @@ export interface ObjectTypeTemplate {
   attributes?: Record<string, any>;
   children?: ChildTemplate[];
   inheritAttributes?: string[];
-  referenceBook?: string;
-  referencePage?: number;
   creature?: MonsterID;
   variant?: string;
   legendary?: 3 | 5;
@@ -84,4 +82,6 @@ export interface RaceData {
   int?: number;
   wis?: number;
   cha?: number;
+  /** Weighted alignment bias for random NPC alignment selection. Keys are alignment strings, values are relative weights. */
+  alignmentBias?: Record<string, number>;
 }
