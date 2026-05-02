@@ -1,6 +1,7 @@
 import type { WorldNode } from './types';
 import { populationDensity, alignmentList, elementList, temperatureList, races } from './data/constants';
 import { weightedRand, rand, collectAncestorTags } from './helpers';
+import { getRegisteredNodes } from './nodeRegistry';
 import { averageStats, races as toolkit5eRaces } from '@toolkit5e/base';
 import { monsterList } from '@toolkit5e/monster-scaler';
 import { generateNpcDescription } from './npcNameGenerators';
@@ -98,6 +99,7 @@ export const attributeEditors: Record<string, any> = {
     alignment: alignmentList,
     gender: ['Male', 'Female', 'Non-binary'],
     race: Object.keys(races),
+    settlementType: ['Standard', 'Coastal', 'Underground'],
     description: 'textarea'
 };
 
@@ -115,6 +117,7 @@ export const labels: Record<string, string> = {
     race: "Race",
     lineage: "Lineage",
     gender: "Gender",
+    settlementType: "Settlement Type",
     worship: "Worships",
     // Race names for demographics display
     dragonborn: "Dragonborn",
@@ -804,10 +807,11 @@ function selectNpcAlignment(worship: string, race: string, deities: WorldNode[])
 /**
  * Custom setup for NPC nodes. Selects a race from the nearest ancestor's racial
  * demographics, randomizes gender, and selects a worship target if not inherited.
+ * Queries the node registry for deities internally.
  * @param node - The NPC node
- * @param deities - Array of existing deity nodes from the registry
  */
-export function npcSetup(node: WorldNode, deities: WorldNode[]): void {
+export function npcSetup(node: WorldNode): void {
+    const deities = getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod');
     node.attributes!.race = selectNpcRace(node);
     const genderRoll = rand(1, 20);
     node.attributes!.gender = genderRoll <= 9 ? 'Male' : genderRoll <= 18 ? 'Female' : 'Non-binary';
@@ -882,4 +886,36 @@ export function selectWorship(deities: WorldNode[]): string {
  */
 export function templeSetup(node: WorldNode, deities: WorldNode[]): void {
     node.attributes!.worship = selectWorship(deities);
+}
+
+/** Settlement type values — determines what district types and features are available. */
+export const settlementTypes = {
+    standard: 'Standard',
+    coastal: 'Coastal',
+    underground: 'Underground',
+} as const;
+
+/** Tags that map to settlement types. First match wins. */
+const tagToSettlementType: Record<string, string> = {
+    water: settlementTypes.coastal,
+    underground: settlementTypes.underground,
+};
+
+/**
+ * Custom setup for settlement nodes. Determines the settlement type based on
+ * the parent biome's tags (coastal, underground, etc.) and sets it as an attribute.
+ * Falls back to 'Standard' if no matching tags are found.
+ *
+ * @param node - The settlement node
+ * @param objectTypes - The objectTypes map (passed to avoid circular imports)
+ */
+export function settlementSetup(node: WorldNode, objectTypes: Record<string, any>): void {
+    const tags = collectAncestorTags(node, objectTypes);
+    for (const tag of tags) {
+        if (tagToSettlementType[tag]) {
+            node.attributes!.settlementType = tagToSettlementType[tag];
+            return;
+        }
+    }
+    node.attributes!.settlementType = settlementTypes.standard;
 }

@@ -12,7 +12,7 @@ It is intended for public release eventually.
 - **Build**: Gulp 4 + Rollup (via `gulp-better-rollup`) + `rollup-plugin-typescript2`
 - **CSS**: Dart Sass (`sass` package) + PostCSS + cssnano
 - **Runtime**: jQuery (loaded from CDN), vanilla browser APIs
-- **Packages**: `@toolkit5e/monster-scaler` and `@toolkit5e/statblock` (consumed from npm as a normal dependency)
+- **Packages**: `@toolkit5e/base`, `@toolkit5e/monster-scaler`, and `@toolkit5e/statblock` (consumed via `file:` references to the local toolkit5e workspace for development)
 - **Output**: `docs/` (GitHub Pages compatible)
 
 ### Build Commands
@@ -43,7 +43,12 @@ src/scripts/
 ├── scripts.ts                # Entry point — DOM logic, event handlers, save/load
 └── data/
     ├── constants.ts          # Shared data constants (populationDensity, temperatureList, races, etc.)
-    ├── objectTypes.ts        # The full objectTypes map + category attribute injection loop
+    ├── objectTypes.ts        # Merge file — imports partials, spreads into objectTypes, runs category injection
+    ├── objectTypes/
+    │   ├── planarTypes.ts    # Multiverse, planes, planar biomes, divine realms, deities, avatars
+    │   ├── geographyTypes.ts # Continents, oceans, regions, biomes, localities
+    │   ├── settlementTypes.ts# Settlement tiers, districts, buildings (temples, shops), role NPC wrappers
+    │   └── creatureTypes.ts  # Creature groups, individual creatures, base NPC types
     └── presets/
         ├── index.ts          # Preset interface + registry array
         ├── forgottenRealms.ts # Forgotten Realms world tree
@@ -83,6 +88,22 @@ Current categories:
 - `plane` — alignment, element
 - `settlement` — racialDemographics
 
+### Settlements
+Settlements are unified into a single set of tiers: `thorp`, `hamlet`, `village`, `townSmall`, `townLarge`, `citySmall`, `cityLarge`, `metropolis`. Each tier has a `settlementType` attribute set by `settlementSetup` based on the parent biome's tags:
+- Parent with `water` tag → `'Coastal'`
+- Parent with `underground` tag → `'Underground'`
+- Default → `'Standard'`
+
+The `settlementType` attribute is editable by users and drives condition-based children (e.g. a docks district only spawns in coastal settlements). This replaces the old pattern of duplicating settlement types per biome.
+
+**Settlement hierarchy**: Cities (citySmall, cityLarge, metropolis) should only have **districts** as direct children. Districts and towns/villages have **buildings** as direct children. NPCs spawn inside buildings, not directly in settlements.
+
+Current building types: `temple` (worship-based, contains acolytes and priests), `knighthoodOrder` (worship-based, contains grandmaster + knights + squires).
+
+Current district types: `districtTemple` (contains temples and knighthood orders).
+
+Parent biomes (coast, plains, etc.) spawn settlements using weighted random type selection based on population density.
+
 ### Child Generation
 Children are generated on-demand via a "Generate Children" button. If a generation pass produces zero children (all `min: 0` rolls came up 0), it retries up to 3 times to avoid empty results.
 
@@ -119,13 +140,17 @@ Presets also serve as a **litmus test for the generator's expressiveness**. If a
 ## Known TODOs / In-Flight
 
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
-- **Default root** is `multiverse` — `createRootNode('tundra')` in `scripts.ts` is a dev leftover and should be reverted
-- Remaining `//TODO` stubs: moons/celestial bodies, coastal settlement children
-- **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. Recently added: frost giant, ogre, goblin (with hobgoblin/bugbear variants). Major categories remaining: other giants, monstrosities, more humanoid races (orc, kobold, gnoll), NPC statblocks, constructs, oozes, more undead.
+- **Default root** is `multiverse` — `createRootNode('districtTemple')` in `scripts.ts` is a dev leftover and should be reverted
+- Remaining `//TODO` stubs: moons/celestial bodies
+- **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. NPC statblocks now cover: commoner, guard, bandit, bandit captain, thug, scout, noble, knight, veteran, mage, priest. Major categories remaining: other giants, monstrosities, more humanoid races (kobold, gnoll), constructs, oozes, more undead.
+- **Settlement districts and buildings** — cities should only have districts as children, districts and towns have buildings. Currently NPCs spawn directly in settlements as a placeholder. Need to add more district types (market, residential, military, docks) and building types (tavern, shop, barracks, guild hall) to house NPCs properly.
+- **Split creatureTypes.ts** — at ~1450 lines it's the largest partial file. Could be split further into NPCs (base NPC types), groups/encounters (wolf packs, demon hordes, etc.), and individual creatures (wolves, bears, dragons, etc.).
+- **Racial higher-level spells** — elf and tiefling lineages grant spells at levels 3 and 5. Need a way to determine NPC "level" from CR to decide which spells are available.
 - **Worship weighting** — deity selection for temples/NPCs could be weighted by geography (sea god near coast) and racial demographics (nature god in elven areas). Core system works, weighting is a refinement.
+- **Lineage-aware demographics** — lineage selection is currently equal-weight random. Could be weighted by biome tags (more drow underground, more wood elves in forests).
 - **Inheritance rethink** — `inheritAttributes` was designed for simple attribute copying but is now used for nuanced things like worship. Consider having `customSetup` handle inheritance explicitly by walking the parent chain, rather than requiring placeholder attributes.
 - **NPC description pools** — current pools are a good start but could be expanded. Consider race-specific descriptions (dwarven braids, elven grace, etc.) and profession-specific ones (priest-specific religious items, guard-specific armor details).
-- **`referenceBook`/`referencePage` removed** — these properties were removed from `ObjectTypeTemplate` since the monster-scaler link and statblock modal make book references redundant.
+- **Preset worlds** — preset data files exist but are disabled (copyrighted content). The infrastructure is in place for homebrew presets.
 - **`book` constant in `constants.ts`** — may be unused now, can be cleaned up.
 
 ## Content Coverage
@@ -204,6 +229,10 @@ NPC types use `customSetup` (`npcSetup`) to select race, gender, worship, and al
 
 **Racial demographics**: stored as `Record<string, number>` on geography and settlement nodes. Generated fresh (0–30 per race) at the top level, inherited with ±10 variation by children. A race at 0 stays at 0 in all descendants (that race doesn't exist in this region). All-zero guard ensures at least one race has presence.
 
+**Available races** (12 total, SRD 5.2 + legacy): dragonborn, dwarf, elf, gnome, goliath, half-elf (legacy), half-orc (legacy), halfling, human, orc, tiefling. Each has alignment bias weights in `constants.ts` (except human — equal probability). Race data updated to SRD 5.2 mechanics (speed, darkvision, traits).
+
+**Lineages**: Races with lineages (dragonborn 10 colors, elf drow/high/wood, gnome forest/rock, goliath 6 giant ancestries, tiefling abyssal/chthonic/infernal) get a random lineage at generation time via `selectNpcLineage`. Lineage is stored on the node and editable. Races without lineages (dwarf, halfling, human, half-elf, half-orc, orc) get an empty string.
+
 **Gender**: Male (45%), Female (45%), Non-binary (10%). Stored as a string on the node.
 
 **Worship**: NPCs may worship a named deity (from the registry), a divine domain ("War", "Nature"), or an alignment cause ("Lawful Good", "the Balance"). Temples select worship once via `templeSetup`, and all child NPCs inherit it via `inheritAttributes`. NPCs outside temples select their own.
@@ -221,7 +250,16 @@ Alignment is passed to the statblock modal (`statblock.alignment`) and appended 
 
 **Name generation** (`npcNameGenerator` in `npcNameGenerators.ts`): master dispatcher that reads race and gender, delegates to one of 9 racial generators. Each generator has gendered first name pools and family/clan name pools. Non-binary NPCs draw from either gendered pool randomly. Half-elves draw from both human and elven pools.
 
-Current NPC types: `npcAcolyte` (CR 1/4–1, priest/healer variant), `npcPriest` (CR 2–5, priest/healer variant).
+Current NPC types:
+- **Religious**: `npcAcolyte` (CR 1/4–1, priest/healer), `npcPriest` (CR 2–5, priest/healer)
+- **Military**: `npcGuard` (CR 1/8–1, guard), `npcVeteran` (CR 2–5, veteran), `npcKnight` (CR 3–6, knight), `npcKnightGrandmaster` (CR 5–8, knight, inherits worship), `npcKnightMember` (CR 3–5, knight, inherits worship), `npcSquire` (CR 1/2–2, guard, inherits worship)
+- **Civilian**: `npcNoble` (CR 1/8–1, noble), `npcCommoner` (CR 0, commoner), `npcMage` (CR 4–8, mage)
+- **Criminal**: `npcBandit` (CR 1/8–1/2, bandit), `npcBanditCaptain` (CR 2–4, banditCaptain), `npcThug` (CR 1/2–2, thug)
+- **Wilderness**: `npcScout` (CR 1/2–2, scout)
+
+**Lineage**: NPCs get a random lineage from their race's available lineages (equal weight). Stored as `node.attributes.lineage` (the lineage name string). Editable via a dropdown in the info panel that rebuilds when race changes. Passed to `scaleMonster` as `options.lineage` (resolved to index) for the statblock modal and monster scaler link. Races without lineages (human, half-elf, half-orc) get an empty string.
+
+**Knighthood Orders**: Similar to temples — worship-based organizations containing a grandmaster, knights, and squires. Named via `knighthoodOrderNameGenerator` (worship-based, flavor symbol, or named order). Spawn in temple districts for cities, directly in large towns.
 
 ### Info Panel — Special Renderers
 - **Creature/Variant** (dynamic creature nodes): creature dropdown with friendly names from `monsterList`, variant dropdown that rebuilds when creature changes, hidden when no variants exist
@@ -229,7 +267,9 @@ Current NPC types: `npcAcolyte` (CR 1/4–1, priest/healer variant), `npcPriest`
 - **Alignment**: dropdown of all 9 standard alignments (from `alignmentList`)
 - **Racial Demographics**: collapsible `<details>` group with a number input per race
 - **Race**: dropdown of all race keys with label display
+- **Lineage**: dropdown of lineages for the selected race, rebuilds when race changes. Hidden for races without lineages.
 - **Gender**: dropdown (Male, Female, Non-binary)
+- **Settlement Type**: dropdown (Standard, Coastal, Underground)
 - Generic select options use `labels` map for display text when available
 
 ### Legendary Creatures
@@ -267,6 +307,7 @@ Callers control title probability themselves (e.g. dragons scale with CR, deitie
 - `avatarNameGenerator` — "Avatar of [Deity Name]" (70%) or "[Own Name], Avatar of [Deity Name]" (30%), with deity name generator fallback for standalone avatars.
 - `npcNameGenerator` (in `npcNameGenerators.ts`) — master dispatcher with 9 racial generators: human (European fantasy), dwarf (Norse/Germanic + clan), elf (melodic/flowing), halfling (English countryside), gnome (whimsical), half-elf (mixed human/elven pools), half-orc (guttural, optional clan), dragonborn (draconic + clan), tiefling (infernal + virtue names).
 - `feyNameGenerator` — nature-inspired names with titles via `generateTitle` with CR and creatureType 'fey'.
+- `knighthoodOrderNameGenerator` — three paths: worship-based ("Knights of War"), flavor symbol ("Order of the White Rose"), or named ("The Silver Brotherhood").
 - `forestNameGenerator`, `mountainNameGenerator`, `mountainRangeNameGenerator`, `plainsNameGenerator`, `swampNameGenerator`, `desertNameGenerator`, `savannaNameGenerator`, `forgottenBiomeNameGenerator`, `caveNameGenerator`, `lakeNameGenerator`, `riverNameGenerator`, `continentNameGenerator`.
 
 ### Reskinned Creatures
@@ -295,10 +336,11 @@ Using one `monsterList` entry at different CRs or with different display names:
 - New NPC name generators go in `src/scripts/npcNameGenerators.ts`
 - Node type keys are camelCase (e.g. `coastalCityLarge`, `mammothHerd`)
 - Non-beast creature nodes should have an `alignment` attribute for name generator compatibility
-- The hierarchy is: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean (or Planar Layer) → Region/Biome → Locality → Point of Interest / Creature
+- The hierarchy is: Multiverse → Planar Cluster → Planet/Plane → Continent/Ocean (or Planar Layer) → Region/Biome → Locality/Settlement → District/Building → NPC/Creature
+- Cities (citySmall+) should only have districts as direct children. Districts and towns/villages have buildings as direct children. NPCs spawn inside buildings, not directly in settlements.
 - Creatures and creature groups should spawn inside biomes/localities, not directly on regions or layers
 - Dynamic creature types (like deities) use `dynamicCreature: true` on the template and store `creature`, `variant`, and `legendary` as node attributes. The statblock modal and link builder check node attributes when `dynamicCreature` is true.
-- `customSetup` runs after attribute generation and before the name generator. It's the right place for any logic that needs to read resolved attributes and set derived ones. Used by deities (`deitySetup`), avatars (`avatarSetup`), NPCs (`npcSetup`), and temples (`templeSetup`).
+- `customSetup` runs after attribute generation and before the name generator. It's the right place for any logic that needs to read resolved attributes and set derived ones. Used by deities (`deitySetup`), avatars (`avatarSetup`), NPCs (`npcSetup`), temples (`templeSetup`), and settlements (`settlementSetup`).
 - Attribute generation handles primitive values (string, number, boolean) as fixed defaults — useful for fallback values when inheritance fails.
 - Category attribute injection uses "set if not already defined" — type-specific attributes take precedence over category defaults.
 - The tree UI uses custom `div.node` markup with separate click targets: `.node-toggle` for expand/collapse, `.node-label` for selection. Not `<details>`/`<summary>`.

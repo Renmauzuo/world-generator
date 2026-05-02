@@ -518,3 +518,94 @@ export function avatarNameGenerator(node: WorldNode): string {
     // No linked deity — generate a standalone divine name with a title
     return deityNameGenerator(node);
 }
+
+/**
+ * Generates a name for a knighthood order. Three paths:
+ * 1. Worship-based: "Order/Knights/Cavaliers of {worship}" (most common)
+ * 2. Flavor name: "Order of the {adjective} {symbol}" (e.g. "Order of the White Rose")
+ * 3. Named order: "{adjective} {group}" (e.g. "The Silver Brotherhood")
+ */
+export function knighthoodOrderNameGenerator(node: WorldNode): string {
+    const worship: string = node.attributes?.worship ?? '';
+    const groupNouns = ['Order', 'Knights', 'Cavaliers', 'Brotherhood', 'Sworn', 'Sentinels', 'Wardens'];
+
+    // 50% worship-based, 35% flavor symbol, 15% named
+    const roll = Math.random();
+
+    if (roll < 0.5 && worship) {
+        return randFromArray(groupNouns) + ' of ' + worship;
+    }
+
+    if (roll < 0.85) {
+        const adjectives = [
+            'White', 'Silver', 'Golden', 'Iron', 'Crimson', 'Azure', 'Emerald',
+            'Radiant', 'Burning', 'Frozen', 'Shadow', 'Dawn', 'Twilight', 'Storm',
+            'Sacred', 'Hallowed', 'Eternal', 'Vigilant', 'Shining', 'Ashen'
+        ];
+        const symbols = [
+            'Rose', 'Shield', 'Sword', 'Lion', 'Eagle', 'Dragon', 'Crown',
+            'Star', 'Flame', 'Tower', 'Hammer', 'Chalice', 'Serpent', 'Phoenix',
+            'Stag', 'Wolf', 'Gryphon', 'Gauntlet', 'Banner', 'Thorn'
+        ];
+        return randFromArray(groupNouns) + ' of the ' + randFromArray(adjectives) + ' ' + randFromArray(symbols);
+    }
+
+    // Named order
+    const prefixes = [
+        'The Silver', 'The Iron', 'The Golden', 'The Crimson', 'The Azure',
+        'The Sacred', 'The Hallowed', 'The Vigilant', 'The Radiant', 'The Sworn'
+    ];
+    const namedGroups = ['Brotherhood', 'Sisterhood', 'Compact', 'Covenant', 'Legion', 'Circle', 'Guard'];
+    return randFromArray(prefixes) + ' ' + randFromArray(namedGroups);
+}
+
+/**
+ * Generates a name for a tavern or inn.
+ * Formats: "The {Adjective} {Noun}" or "The {Noun} and {Noun}"
+ */
+export function tavernNameGenerator(_node: WorldNode): string {
+    const adjectives = [
+        'Golden', 'Silver', 'Rusty', 'Prancing', 'Sleeping', 'Laughing', 'Drunken',
+        'Wandering', 'Jolly', 'Weary', 'Lucky', 'Broken', 'Crooked', 'Merry',
+        'Crimson', 'Green', 'Blue', 'Black', 'White', 'Old', 'Last', 'Blind'
+    ];
+    const nouns = [
+        'Dragon', 'Pony', 'Stag', 'Boar', 'Griffin', 'Unicorn', 'Goblet',
+        'Tankard', 'Barrel', 'Flagon', 'Crown', 'Sword', 'Shield', 'Hound',
+        'Raven', 'Fox', 'Bear', 'Wolf', 'Serpent', 'Hawk', 'Lion', 'Anchor'
+    ];
+
+    if (Math.random() < 0.3) {
+        // "The {Noun} and {Noun}" format
+        const noun1 = randFromArray(nouns);
+        let noun2 = randFromArray(nouns);
+        while (noun2 === noun1) noun2 = randFromArray(nouns);
+        return 'The ' + noun1 + ' and ' + noun2;
+    }
+    return 'The ' + randFromArray(adjectives) + ' ' + randFromArray(nouns);
+}
+
+/**
+ * Generates a name for a generic shop.
+ * Uses the shop's typeName as the trade, with optional flavor.
+ */
+export function shopNameGenerator(node: WorldNode): string {
+    const adjectives = [
+        'Fine', 'Old', 'Grand', 'Humble', 'Curious', 'Reliable', 'Rare',
+        'Honest', 'Sturdy', 'Exotic', 'Enchanted', 'Dusty', 'Gilded'
+    ];
+    const trade = node.type === 'shopBlacksmith' ? 'Forge'
+        : node.type === 'shopGeneralGoods' ? 'General Store'
+        : node.type === 'shopMagic' ? 'Arcane Emporium'
+        : node.type === 'shopApothecary' ? 'Apothecary'
+        : node.type === 'shopJeweler' ? 'Jeweler'
+        : node.type === 'shopTailor' ? 'Tailor'
+        : node.type === 'shopStables' ? 'Stables'
+        : 'Shop';
+
+    // 40% plain trade name, 60% "The {Adjective} {Trade}"
+    if (Math.random() < 0.4) {
+        return 'The ' + trade;
+    }
+    return 'The ' + randFromArray(adjectives) + ' ' + trade;
+}
