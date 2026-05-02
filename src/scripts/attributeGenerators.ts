@@ -1,7 +1,7 @@
 import type { WorldNode } from './types';
 import { populationDensity, alignmentList, elementList, temperatureList, races } from './data/constants';
 import { weightedRand, rand, collectAncestorTags } from './helpers';
-import { averageStats } from '@toolkit5e/base';
+import { averageStats, races as toolkit5eRaces } from '@toolkit5e/base';
 import { monsterList } from '@toolkit5e/monster-scaler';
 import { generateNpcDescription } from './npcNameGenerators';
 
@@ -113,6 +113,7 @@ export const labels: Record<string, string> = {
     variant: "Variant",
     deityName: "Deity",
     race: "Race",
+    lineage: "Lineage",
     gender: "Gender",
     worship: "Worships",
     // Race names for demographics display
@@ -120,10 +121,12 @@ export const labels: Record<string, string> = {
     dwarf: "Dwarf",
     elf: "Elf",
     gnome: "Gnome",
+    goliath: "Goliath",
     halfElf: "Half-Elf",
     halfOrc: "Half-Orc",
     halfling: "Halfling",
     human: "Human",
+    orc: "Orc",
     tiefling: "Tiefling"
 };
 
@@ -810,6 +813,9 @@ export function npcSetup(node: WorldNode, deities: WorldNode[]): void {
     node.attributes!.gender = genderRoll <= 9 ? 'Male' : genderRoll <= 18 ? 'Female' : 'Non-binary';
     node.attributes!.description = generateNpcDescription();
 
+    // Select lineage if the race has lineages available
+    node.attributes!.lineage = selectNpcLineage(node.attributes!.race);
+
     // Inherit worship from parent (temple) if available, otherwise select own
     if (!node.attributes!.worship) {
         node.attributes!.worship = selectWorship(deities);
@@ -817,6 +823,17 @@ export function npcSetup(node: WorldNode, deities: WorldNode[]): void {
 
     // Select alignment based on worship and race
     node.attributes!.alignment = selectNpcAlignment(node.attributes!.worship, node.attributes!.race, deities);
+}
+
+/**
+ * Selects a random lineage for an NPC based on their race.
+ * Looks up the race in the toolkit5e races data and picks equally among available lineages.
+ * Returns the lineage name string, or empty string if the race has no lineages.
+ */
+function selectNpcLineage(raceKey: string): string {
+    const raceEntry = toolkit5eRaces.find(r => r.name === raceKey);
+    if (!raceEntry?.lineages?.length) return '';
+    return raceEntry.lineages[rand(0, raceEntry.lineages.length - 1)].name;
 }
 
 /**

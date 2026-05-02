@@ -1532,7 +1532,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         variant: "healer",
         inheritAttributes: ["worship"],
         customSetup: (node) => npcSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
-        attributes: { challengeRating: [.25, .5, 1], worship: '', alignment: '' }
+        attributes: { challengeRating: [.25, .5, 1], worship: '', alignment: '', lineage: '' }
     },
     npcPriest: {
         typeName: "Priest",
@@ -1541,7 +1541,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
         variant: "healer",
         inheritAttributes: ["worship"],
         customSetup: (node) => npcSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
-        attributes: { challengeRating: { min: 2, max: 5 }, worship: '', alignment: '' }
+        attributes: { challengeRating: { min: 2, max: 5 }, worship: '', alignment: '', lineage: '' }
     },
 
     // Wolves

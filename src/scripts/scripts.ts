@@ -6,7 +6,11 @@ import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize }
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree } from './nodeRegistry';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
-import { stringForCR, toTitleCase } from '@toolkit5e/base';
+import { stringForCR, toTitleCase, races as toolkit5eRaces } from '@toolkit5e/base';
+
+// Type helper — toolkit5e RaceData has lineages, but the world generator's own RaceData shadows it.
+// Use `any` for lineage lookups to avoid the name collision.
+const getLineages = (race: any): { name: string }[] | undefined => race?.lineages;
 import { renderStatblock } from '@toolkit5e/statblock';
 
 let rootNode: WorldNode;
@@ -85,10 +89,24 @@ $(function () {
         if (!creatureID) return;
         const cr = String(selectedNode.attributes?.challengeRating ?? 1);
         try {
-            const statblock = scaleMonster(creatureID, cr, {
+            const scaleOptions: Record<string, any> = {
                 variant: creatureVariant,
                 legendary: creatureLegendary
-            });
+            };
+            // Resolve race and lineage for humanoid NPCs
+            if (selectedNode.attributes?.race) {
+                const raceIndex = toolkit5eRaces.findIndex(r => r.name === selectedNode.attributes!.race);
+                if (raceIndex > 0) {
+                    scaleOptions.race = raceIndex;
+                    // Resolve lineage name to index
+                    const lineageName = selectedNode.attributes.lineage;
+                    if (lineageName && getLineages(toolkit5eRaces[raceIndex])) {
+                        const lineageIndex = getLineages(toolkit5eRaces[raceIndex])!.findIndex(l => l.name === lineageName);
+                        if (lineageIndex >= 0) scaleOptions.lineage = lineageIndex;
+                    }
+                }
+            }
+            const statblock = scaleMonster(creatureID, cr, scaleOptions);
             statblock.name = selectedNode.name || template.typeName;
             // Named nodes are unique creatures — traits should reference them by name
             if (selectedNode.name) {
@@ -176,6 +194,34 @@ $(function () {
             }
         }
 
+        // When race changes, rebuild the lineage dropdown
+        if (attribute === 'race' && selectedNode.attributes?.lineage !== undefined) {
+            const newRaceKey = $(this)[0].value;
+            const raceEntry = toolkit5eRaces.find(r => r.name === newRaceKey);
+            const lineages = getLineages(raceEntry) ?? [];
+
+            // Remove existing lineage label, select, and line break
+            $('#info-panel label[for="lineage"]').next('select').next('br').remove();
+            $('#info-panel label[for="lineage"]').next('select').remove();
+            $('#info-panel label[for="lineage"]').remove();
+
+            // Reset lineage on the node
+            selectedNode.attributes!.lineage = '';
+
+            if (lineages.length > 0) {
+                const $raceBreak = $('#info-panel #race').next('br');
+                const $lineageLabel = $('<label for="lineage">' + (labels['lineage'] || 'Lineage') + ': </label>');
+                $lineageLabel.insertAfter($raceBreak);
+                const $lineageSelect = $('<select id="lineage"></select>');
+                $('<option value="">None</option>').appendTo($lineageSelect);
+                for (const lineage of lineages) {
+                    $('<option></option>').attr('value', lineage.name).html(lineage.name).appendTo($lineageSelect);
+                }
+                $lineageSelect.insertAfter($lineageLabel);
+                $('<br>').insertAfter($lineageSelect);
+            }
+        }
+
         if (saved) {
             saved = false;
         }
@@ -249,8 +295,8 @@ function showInfoForNode(node: WorldNode): void {
     $('#name').attr('value', node.name || '');
     if (node.attributes) {
         for (const attribute in node.attributes) {
-            // Skip variant — it's rendered alongside creature
-            if (attribute === 'variant') continue;
+            // Skip variant and lineage — they're rendered alongside their parent attribute
+            if (attribute === 'variant' || attribute === 'lineage') continue;
 
             const $label = $('<label for="' + attribute + '">' + (labels[attribute] || capitalize(attribute)) + ': </label>');
             $label.appendTo($info);
@@ -340,6 +386,27 @@ function showInfoForNode(node: WorldNode): void {
         }
     }
 
+    // Lineage dropdown — shown after the race attribute when the race has lineages
+    if (node.attributes?.lineage !== undefined && node.attributes?.race) {
+        const raceEntry = toolkit5eRaces.find(r => r.name === node.attributes!.race);
+        const raceLineages = raceEntry ? getLineages(raceEntry) : undefined;
+        if (raceLineages?.length) {
+            const $lineageLabel = $('<label for="lineage">' + (labels['lineage'] || 'Lineage') + ': </label>');
+            $lineageLabel.appendTo($info);
+            const $lineageSelect = $('<select id="lineage"></select>');
+            $('<option value="">None</option>').appendTo($lineageSelect);
+            for (const lineage of raceLineages) {
+                const $option = $('<option></option>').attr('value', lineage.name).html(lineage.name);
+                if (lineage.name === node.attributes.lineage) {
+                    $option.attr('selected', 'selected');
+                }
+                $option.appendTo($lineageSelect);
+            }
+            $lineageSelect.insertAfter($lineageLabel);
+            $('<br>').insertAfter($lineageSelect);
+        }
+    }
+
     // Build a link to the monster scaler for creatures, and a button to open the statblock modal.
     // Dynamic creatures store creature/variant/legendary on the node's attributes instead of the template.
     const creatureID = template.dynamicCreature ? node.attributes?.creature : template.creature;
@@ -370,6 +437,18 @@ function showInfoForNode(node: WorldNode): void {
         // Pass alignment
         if (node.attributes?.alignment) {
             creatureLink += '&alignment=' + encodeURIComponent(node.attributes.alignment);
+        }
+        // Pass race and lineage as indices for the monster scaler
+        if (node.attributes?.race) {
+            const raceIndex = toolkit5eRaces.findIndex(r => r.name === node.attributes!.race);
+            if (raceIndex > 0) {
+                creatureLink += '&race-select=' + raceIndex;
+                const lineageName = node.attributes.lineage;
+                if (lineageName && getLineages(toolkit5eRaces[raceIndex])) {
+                    const lineageIndex = getLineages(toolkit5eRaces[raceIndex])!.findIndex(l => l.name === lineageName);
+                    if (lineageIndex >= 0) creatureLink += '&lineage-select=' + lineageIndex;
+                }
+            }
         }
         $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
         $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);

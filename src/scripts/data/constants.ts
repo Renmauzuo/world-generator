@@ -36,15 +36,20 @@ export const races: Record<string, RaceData> = {
         'Lawful Neutral': 15, 'True Neutral': 8, 'Chaotic Neutral': 2,
         'Lawful Evil': 5, 'Neutral Evil': 3, 'Chaotic Evil': 1
     }},
-    elf: { dex: 2, int: 1, alignmentBias: {
+    elf: { dex: 2, alignmentBias: {
         'Lawful Good': 5, 'Neutral Good': 10, 'Chaotic Good': 20,
         'Lawful Neutral': 3, 'True Neutral': 10, 'Chaotic Neutral': 15,
         'Lawful Evil': 1, 'Neutral Evil': 3, 'Chaotic Evil': 3
     }},
-    gnome: { int: 2, con: 1, alignmentBias: {
+    gnome: { int: 2, alignmentBias: {
         'Lawful Good': 10, 'Neutral Good': 20, 'Chaotic Good': 10,
         'Lawful Neutral': 5, 'True Neutral': 10, 'Chaotic Neutral': 5,
         'Lawful Evil': 1, 'Neutral Evil': 2, 'Chaotic Evil': 1
+    }},
+    goliath: { str: 2, con: 1, alignmentBias: {
+        'Lawful Good': 5, 'Neutral Good': 10, 'Chaotic Good': 5,
+        'Lawful Neutral': 10, 'True Neutral': 15, 'Chaotic Neutral': 10,
+        'Lawful Evil': 5, 'Neutral Evil': 5, 'Chaotic Evil': 3
     }},
     halfElf: { cha: 2, dex: 1, con: 1, alignmentBias: {
         'Lawful Good': 5, 'Neutral Good': 10, 'Chaotic Good': 15,
@@ -62,6 +67,11 @@ export const races: Record<string, RaceData> = {
         'Lawful Evil': 1, 'Neutral Evil': 2, 'Chaotic Evil': 1
     }},
     human: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
+    orc: { str: 2, con: 1, alignmentBias: {
+        'Lawful Good': 2, 'Neutral Good': 5, 'Chaotic Good': 8,
+        'Lawful Neutral': 5, 'True Neutral': 10, 'Chaotic Neutral': 15,
+        'Lawful Evil': 5, 'Neutral Evil': 10, 'Chaotic Evil': 8
+    }},
     tiefling: { cha: 2, int: 1, alignmentBias: {
         'Lawful Good': 3, 'Neutral Good': 5, 'Chaotic Good': 10,
         'Lawful Neutral': 5, 'True Neutral': 10, 'Chaotic Neutral': 15,
