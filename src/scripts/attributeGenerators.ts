@@ -812,13 +812,20 @@ function selectNpcAlignment(worship: string, race: string, deities: WorldNode[])
  */
 export function npcSetup(node: WorldNode): void {
     const deities = getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod');
-    node.attributes!.race = selectNpcRace(node);
+
+    // Only select race if not already set (allows pre-set race for specific NPC types)
+    if (!node.attributes!.race) {
+        node.attributes!.race = selectNpcRace(node);
+    }
+
     const genderRoll = rand(1, 20);
     node.attributes!.gender = genderRoll <= 9 ? 'Male' : genderRoll <= 18 ? 'Female' : 'Non-binary';
     node.attributes!.description = generateNpcDescription();
 
-    // Select lineage if the race has lineages available
-    node.attributes!.lineage = selectNpcLineage(node.attributes!.race);
+    // Only select lineage if not already set
+    if (!node.attributes!.lineage) {
+        node.attributes!.lineage = selectNpcLineage(node.attributes!.race);
+    }
 
     // Inherit worship from parent (temple) if available, otherwise select own
     if (!node.attributes!.worship) {
@@ -827,6 +834,21 @@ export function npcSetup(node: WorldNode): void {
 
     // Select alignment based on worship and race
     node.attributes!.alignment = selectNpcAlignment(node.attributes!.worship, node.attributes!.race, deities);
+}
+
+/**
+ * Custom setup for dragonborn NPCs that serve a dragon. Sets lineage from the
+ * inherited `dragonColor` attribute, then delegates to npcSetup for everything else.
+ * Race should be pre-set to 'dragonborn' on the type's attributes.
+ * @param node - The NPC node with `dragonColor` inherited from the dragon lair
+ */
+export function dragonbornNpcSetup(node: WorldNode): void {
+    // Map dragon color to lineage name (capitalize first letter)
+    const color: string = node.attributes?.dragonColor ?? '';
+    if (color) {
+        node.attributes!.lineage = color.charAt(0).toUpperCase() + color.slice(1);
+    }
+    npcSetup(node);
 }
 
 /**
@@ -918,4 +940,19 @@ export function settlementSetup(node: WorldNode, objectTypes: Record<string, any
         }
     }
     node.attributes!.settlementType = settlementTypes.standard;
+}
+
+/**
+ * Sets extra resistances on a creature based on the inherited temperature attribute.
+ * Cold environments grant cold resistance, warm environments grant fire resistance.
+ * Call this from customSetup on creature types that should adapt to their environment.
+ * @param node - The creature node with temperature inherited from the parent
+ */
+export function environmentalResistanceSetup(node: WorldNode): void {
+    const temp = node.attributes?.temperature;
+    if (temp === 'Cold') {
+        node.attributes!.extraResistances = 'cold';
+    } else if (temp === 'Warm') {
+        node.attributes!.extraResistances = 'fire';
+    }
 }

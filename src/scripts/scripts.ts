@@ -1,10 +1,10 @@
 import type { WorldNode } from './types';
 import { objectTypes } from './data/objectTypes';
 import { presets } from './data/presets/index';
-import { attributeEditors, labels } from './attributeGenerators';
+import { attributeEditors, labels, deityDomains } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
-import { registerNode, clearRegistry, registerTree } from './nodeRegistry';
+import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
 import { stringForCR, toTitleCase, races as toolkit5eRaces } from '@toolkit5e/base';
 
@@ -19,6 +19,21 @@ let selectedNode: WorldNode;
 let saved = true;
 let currentSaveName = '';
 let worldList: string[];
+
+/** Marks the world as having unsaved changes and auto-saves to localStorage for session persistence. */
+let autoSaveTimeout: number | null = null;
+function markUnsaved(): void {
+    saved = false;
+    // Debounce auto-save to avoid serializing on every keystroke
+    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = window.setTimeout(() => {
+        try {
+            localStorage['currentWorld'] = stringifyNodes(rootNode);
+        } catch (e) {
+            // Silently fail if serialization errors
+        }
+    }, 1000);
+}
 
 $(function () {
     // Rather than storing all worlds under one object they are each their own localStorage entry
@@ -45,8 +60,16 @@ $(function () {
         $('#load-preset, #preset-label').hide();
     }
 
-    // Start by creating a multiverse
-    createRootNode('districtTemple');
+    // Load the last session's world if available, otherwise create a fresh multiverse
+    if (localStorage['currentWorld']) {
+        try {
+            createWorldFromJSON(localStorage['currentWorld']);
+        } catch (e) {
+            createRootNode('multiverse');
+        }
+    } else {
+        createRootNode('multiverse');
+    }
 
     // Clicking a node label selects it (shows info in the right panel)
     $('body').on('click', '.node-label', function (e: JQuery.Event) {
@@ -124,6 +147,13 @@ $(function () {
             if (selectedNode.attributes?.alignment) {
                 statblock.alignment = selectedNode.attributes.alignment;
             }
+            // Apply extra resistances from node attributes
+            if (selectedNode.attributes?.extraResistances) {
+                const extras = selectedNode.attributes.extraResistances.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (extras.length) {
+                    statblock.resistances = [...new Set([...(statblock.resistances || []), ...extras])];
+                }
+            }
             const $body = $('#statblock-modal-body');
             $body.empty();
             renderStatblock(statblock, $body[0]);
@@ -144,8 +174,37 @@ $(function () {
         }
     });
 
+    // Add child button — generates a single node of the selected type and appends it
+    $('#info-panel').on('click', '.button-add-child', function (e: JQuery.Event) {
+        e.preventDefault();
+        const childType = $(this).siblings('.add-child-select').val() as string;
+        if (!childType || !objectTypes[childType]) return;
+
+        if (!selectedNode.children) {
+            selectedNode.children = [];
+        }
+        addChildToNode(childType, selectedNode);
+
+        // Ensure the node has a children container and expand it
+        const $nodeEl = selectedNode.domElement!;
+        let $childrenContainer = $nodeEl.children('.node-children');
+        if (!$childrenContainer.length) {
+            // Add toggle and children container if this node didn't have children before
+            if (!$nodeEl.children('.node-toggle').length) {
+                $('<span class="node-toggle">▼</span>').prependTo($nodeEl);
+            }
+            $childrenContainer = $('<div class="node-children"></div>').appendTo($nodeEl);
+        }
+        $childrenContainer.show();
+        $nodeEl.children('.node-toggle').html('▼');
+
+        markUnsaved();
+    });
+
     $('#info-panel').on('input change', 'input,select,textarea', function () {
         const attribute: string = $(this).attr('id');
+        // Skip add-child selects — they don't represent node attributes
+        if (!attribute || $(this).hasClass('add-child-select')) return;
         // If its name changed then update the associated DOM element
         if (attribute === 'name') {
             const labelText = objectTypes[selectedNode.type].typeName + ' (' + $(this)[0].value + ')';
@@ -162,6 +221,21 @@ $(function () {
                 const rawValue = $(this)[0].value;
                 selectedNode.attributes![attribute] = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
             }
+        }
+
+        // Worship dropdown — handle custom option toggle
+        if (attribute === 'worship') {
+            const val = $(this)[0].value;
+            if (val === '__custom__') {
+                $('.worship-custom').show().focus();
+                // Don't set the attribute to "__custom__" — wait for the text input
+            } else {
+                $('.worship-custom').hide();
+                selectedNode.attributes!.worship = val;
+            }
+        }
+        if (attribute === 'worship-custom') {
+            selectedNode.attributes!.worship = $(this)[0].value;
         }
 
         // When creature changes on a dynamic creature node, rebuild the variant dropdown
@@ -223,7 +297,7 @@ $(function () {
         }
 
         if (saved) {
-            saved = false;
+            markUnsaved();
         }
     });
 
@@ -235,11 +309,15 @@ $(function () {
         $('#info-panel #fields').empty();
         $('#name').attr('value', '');
         saved = true;
+        currentSaveName = '';
+        localStorage['currentWorld'] = stringifyNodes(rootNode);
     });
 
     $('#load-saved').on('input', function () {
         confirmSaved();
-        createWorldFromJSON(localStorage['world-' + ($(this)[0] as HTMLInputElement).value]);
+        currentSaveName = ($(this)[0] as HTMLInputElement).value;
+        createWorldFromJSON(localStorage['world-' + currentSaveName]);
+        localStorage['currentWorld'] = stringifyNodes(rootNode);
     });
 
     $('#load-preset').on('change', function () {
@@ -264,6 +342,10 @@ $(function () {
         });
     });
 
+    $('#button-save').on('click', function () {
+        saveWorld();
+    });
+
     $('#button-import-selected').on('click', function () {
         const data = prompt("Please input the JSON for the child to import:");
         if (data && data !== "") {
@@ -283,6 +365,27 @@ $(function () {
         });
     });
 
+    $('#button-delete-selected').on('click', function () {
+        // Can't delete the root node
+        if (!selectedNode.parent) {
+            alert("Cannot delete the root node.");
+            return;
+        }
+        if (!confirm('Delete "' + (selectedNode.name || objectTypes[selectedNode.type].typeName) + '" and all its children?')) return;
+
+        // Remove from parent's children array
+        const parent = selectedNode.parent;
+        const index = parent.children!.indexOf(selectedNode);
+        if (index > -1) parent.children!.splice(index, 1);
+
+        // Remove DOM element
+        selectedNode.domElement!.remove();
+
+        // Select the parent
+        showInfoForNode(parent);
+        markUnsaved();
+    });
+
     showInfoForNode(rootNode);
 });
 
@@ -297,6 +400,8 @@ function showInfoForNode(node: WorldNode): void {
         for (const attribute in node.attributes) {
             // Skip variant and lineage — they're rendered alongside their parent attribute
             if (attribute === 'variant' || attribute === 'lineage') continue;
+            // Skip internal attributes that have no template definition or editor
+            if (attribute === 'extraResistances' || attribute === 'dragonColor') continue;
 
             const $label = $('<label for="' + attribute + '">' + (labels[attribute] || capitalize(attribute)) + ': </label>');
             $label.appendTo($info);
@@ -358,6 +463,67 @@ function showInfoForNode(node: WorldNode): void {
             // If it's not an array just check the type of the current value
             } else if (templateAttribute === 'textarea') {
                 $input = $('<textarea id=' + attribute + ' rows="3"></textarea>').val(node.attributes[attribute]);
+            } else if (attribute === 'worship') {
+                // Special worship dropdown with deities, domains, dedications, and custom option
+                $input = $('<select id="worship" class="worship-select"></select>');
+                const currentWorship = node.attributes[attribute] || '';
+
+                // Gather options
+                const deities = getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod');
+                const domainNames = Object.values(deityDomains).map(d => d.name);
+                const dedications = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Law and Order', 'the Balance', 'Freedom', 'the Greater Good', 'the Natural Order'];
+
+                // Check if current value matches any known option
+                const allKnown = [
+                    ...deities.map(d => d.name ?? d.type),
+                    ...domainNames,
+                    ...dedications
+                ];
+                const isCustom = currentWorship && !allKnown.includes(currentWorship);
+
+                // Deities group
+                if (deities.length > 0) {
+                    const $deityGroup = $('<optgroup label="Deities"></optgroup>');
+                    for (const deity of deities) {
+                        const name = deity.name ?? deity.type;
+                        const $opt = $('<option></option>').attr('value', name).html(name);
+                        if (name === currentWorship) $opt.attr('selected', 'selected');
+                        $opt.appendTo($deityGroup);
+                    }
+                    $deityGroup.appendTo($input);
+                }
+
+                // Domains group
+                const $domainGroup = $('<optgroup label="Domains"></optgroup>');
+                for (const domain of domainNames) {
+                    const $opt = $('<option></option>').attr('value', domain).html(domain);
+                    if (domain === currentWorship) $opt.attr('selected', 'selected');
+                    $opt.appendTo($domainGroup);
+                }
+                $domainGroup.appendTo($input);
+
+                // Dedications group
+                const $dedGroup = $('<optgroup label="Dedications"></optgroup>');
+                for (const ded of dedications) {
+                    const $opt = $('<option></option>').attr('value', ded).html(ded);
+                    if (ded === currentWorship) $opt.attr('selected', 'selected');
+                    $opt.appendTo($dedGroup);
+                }
+                $dedGroup.appendTo($input);
+
+                // Custom option
+                const $customOpt = $('<option value="__custom__">Custom...</option>');
+                if (isCustom) $customOpt.attr('selected', 'selected');
+                $customOpt.appendTo($input);
+
+                $input.insertAfter($label);
+
+                // Custom text field (shown when "Custom..." is selected)
+                const $customInput = $('<input type="text" id="worship-custom" class="worship-custom">').attr('value', isCustom ? currentWorship : '');
+                if (!isCustom) $customInput.hide();
+                $customInput.insertAfter($input);
+                $('<br>').insertAfter($customInput);
+                continue;
             } else if (typeof node.attributes[attribute] === "string") {
                 $input = $('<input type="text" id=' + attribute + '>').attr('value', node.attributes[attribute]);
             } else if (typeof node.attributes[attribute] === "number") {
@@ -450,9 +616,57 @@ function showInfoForNode(node: WorldNode): void {
                 }
             }
         }
+        // Pass extra resistances — triggers advanced options on the monster scaler
+        if (node.attributes?.extraResistances) {
+            creatureLink += '&advanced-options&extra-resists=' + encodeURIComponent(node.attributes.extraResistances);
+        }
         $('<p><a href="' + creatureLink + '" target="_blank">View on monster scaler. (Opens in new window.)</a></p>').appendTo($info);
         $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);
     }
+
+    // ─── Add Child section ───
+    const $addChildSection = $('<details class="add-child-section"></details>');
+    $('<summary>Add Child</summary>').appendTo($addChildSection);
+
+    // Valid children dropdown (from the node's type template)
+    const templateChildren = objectTypes[node.type]?.children;
+    if (templateChildren) {
+        // Collect unique valid child types from the template
+        const validTypes = new Set<string>();
+        for (const child of templateChildren) {
+            if (typeof child.type === 'string') {
+                validTypes.add(child.type);
+            } else {
+                for (const t of Object.keys(child.type)) {
+                    validTypes.add(t);
+                }
+            }
+        }
+        $('<label>Valid Types:</label>').appendTo($addChildSection);
+        const $validRow = $('<div class="add-child-row"></div>');
+        const $validSelect = $('<select class="add-child-select"></select>');
+        const sortedValid = [...validTypes].sort((a, b) => (objectTypes[a]?.typeName || a).localeCompare(objectTypes[b]?.typeName || b));
+        for (const t of sortedValid) {
+            $('<option></option>').attr('value', t).html(objectTypes[t]?.typeName || capitalize(t)).appendTo($validSelect);
+        }
+        $validSelect.appendTo($validRow);
+        $('<button class="button-add-child">Add</button>').appendTo($validRow);
+        $validRow.appendTo($addChildSection);
+    }
+
+    // All types dropdown
+    $('<label>All Types:</label>').appendTo($addChildSection);
+    const $allRow = $('<div class="add-child-row"></div>');
+    const $allSelect = $('<select class="add-child-select add-child-all"></select>');
+    const allKeys = Object.keys(objectTypes).sort((a, b) => objectTypes[a].typeName.localeCompare(objectTypes[b].typeName));
+    for (const t of allKeys) {
+        $('<option></option>').attr('value', t).html(objectTypes[t].typeName).appendTo($allSelect);
+    }
+    $allSelect.appendTo($allRow);
+    $('<button class="button-add-child">Add</button>').appendTo($allRow);
+    $allRow.appendTo($addChildSection);
+
+    $addChildSection.appendTo($info);
 }
 
 /* Node Generation Begin */
@@ -521,8 +735,10 @@ function generateChildrenForNode(node: WorldNode): void {
     const maxAttempts = 3;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         let childrenAdded = 0;
-        for (const index in objectTypes[node.type].children) {
-            const childTemplate = objectTypes[node.type].children![index];
+        const childTemplates = objectTypes[node.type]?.children;
+        if (!childTemplates) break;
+        for (const index in childTemplates) {
+            const childTemplate = childTemplates[index];
             // A child is valid if it has no conditions, or if any condition passes (OR logic)
             let valid = true;
             if (childTemplate.conditions && childTemplate.conditions.length > 0) {
@@ -559,7 +775,7 @@ function generateChildrenForNode(node: WorldNode): void {
         // If at least one child was generated, we're done. Otherwise retry.
         if (childrenAdded > 0) break;
     }
-    saved = false;
+    markUnsaved();
 }
 
 function addChildToNode(childType: string, node: WorldNode): void {
@@ -575,11 +791,12 @@ function addChildToNode(childType: string, node: WorldNode): void {
 
 // Generates a DOM element for a given node in the world tree
 function domObjectForNode(node: WorldNode): JQuery {
-    let labelText = objectTypes[node.type].typeName;
+    const template = objectTypes[node.type];
+    let labelText = template?.typeName ?? node.type;
     if (node.name && node.name.length) {
         labelText += ' (' + node.name + ')';
     }
-    const hasChildren = !!objectTypes[node.type].children;
+    const hasChildren = !!template?.children;
     const $domElement = $('<div class="node"></div>');
 
     if (hasChildren) {
@@ -604,34 +821,40 @@ function domObjectForNode(node: WorldNode): JQuery {
 
 function confirmSaved(): void {
     if (!saved) {
-        // If there are unsaved changes ask user if they want to save
         const shouldSave = confirm('You have unsaved changes. Save this world?');
         if (shouldSave) {
-            // If this was loaded from a previous save just save over it, if not then prompt user for a new name
-            if (currentSaveName.length) {
-                // Already has a save name — save over it
-            } else {
-                let promptMessage = "Please enter a name for this world.";
-                let saveName: string;
-                let valid: boolean;
-                do {
-                    saveName = prompt(promptMessage) ?? '';
-                    if (saveName.length === 0) {
-                        promptMessage = "Name must not be empty. Please enter a name.";
-                        valid = false;
-                    } else if (worldList.includes(saveName)) {
-                        promptMessage = "Please enter a unique name";
-                        valid = confirm('This name already exists. Save over it?');
-                    } else {
-                        valid = true;
-                    }
-                } while (!valid);
-
-                addWorldToList(saveName);
-                localStorage['world-' + saveName] = stringifyNodes(rootNode);
-            }
+            saveWorld();
         }
     }
+}
+
+/** Saves the current world to localStorage. Prompts for a name if this is a new world. */
+function saveWorld(): void {
+    if (currentSaveName.length) {
+        // Already has a save name — save over it
+        localStorage['world-' + currentSaveName] = stringifyNodes(rootNode);
+    } else {
+        let promptMessage = "Please enter a name for this world.";
+        let saveName: string;
+        let valid: boolean;
+        do {
+            saveName = prompt(promptMessage) ?? '';
+            if (saveName.length === 0) {
+                promptMessage = "Name must not be empty. Please enter a name.";
+                valid = false;
+            } else if (worldList.includes(saveName)) {
+                promptMessage = "Please enter a unique name";
+                valid = confirm('This name already exists. Save over it?');
+            } else {
+                valid = true;
+            }
+        } while (!valid);
+
+        currentSaveName = saveName;
+        addWorldToList(saveName);
+        localStorage['world-' + saveName] = stringifyNodes(rootNode);
+    }
+    saved = true;
 }
 
 /** Converts a node and all its children into a string for save/export.
@@ -707,6 +930,10 @@ function recursiveGenerateDOMElement(parentNode: WorldNode): JQuery {
 /** Recursively goes through the list and does some adjustments after parsing from JSON.
  *  For example, establishing bidirectional links between objects that had to be severed before JSON stringifying. */
 function recursivePostParseProcess(parentNode: WorldNode): void {
+    // Clean up stale "undefined" attribute keys from older saves
+    if (parentNode.attributes && 'undefined' in parentNode.attributes) {
+        delete parentNode.attributes['undefined'];
+    }
     if (parentNode.children) {
         for (const index in parentNode.children) {
             parentNode.children[index].parent = parentNode;

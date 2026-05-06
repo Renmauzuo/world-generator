@@ -229,6 +229,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'merchantCaravan', weightedRange: { 0: 70, 1: 30 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'guardPatrol', weightedRange: { 0: 70, 1: 30 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'monsterHunters', weightedRange: { 0: 85, 1: 15 } },
+            // Profession commoners
+            { type: 'npcLumberjack', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
@@ -269,6 +271,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'merchantCaravan', weightedRange: { 0: 70, 1: 30 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'guardPatrol', weightedRange: { 0: 70, 1: 30 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'monsterHunters', weightedRange: { 0: 85, 1: 15 } },
+            // Profession commoners
+            { type: 'npcLumberjack', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
@@ -304,6 +308,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'scoutParty', weightedRange: { 0: 60, 1: 40 } },
             { type: 'guardPatrol', weightedRange: { 0: 80, 1: 20 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'monsterHunters', weightedRange: { 0: 85, 1: 15 } },
+            // Profession commoners
+            { type: 'npcLumberjack', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'avatar', min: 0, max: 1 }
         ],
         attributes: {
@@ -348,6 +354,9 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'guardPatrol', weightedRange: { 0: 50, 1: 40, 2: 10 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'knightsErrant', weightedRange: { 0: 80, 1: 20 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'banditCamp', weightedRange: { 0: 85, 1: 15 } },
+            // Farms and profession commoners
+            { type: 'farm', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
+            { type: 'npcShepherd', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -374,6 +383,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'scoutParty', weightedRange: { 0: 70, 1: 30 } },
             { type: 'guardPatrol', weightedRange: { 0: 70, 1: 30 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'monsterHunters', weightedRange: { 0: 85, 1: 15 } },
+            // Profession commoners
+            { type: 'npcShepherd', min: 0, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -478,6 +489,9 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'guardPatrol', weightedRange: { 0: 50, 1: 40, 2: 10 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
             { type: 'scoutParty', weightedRange: { 0: 60, 1: 40 } },
             { type: 'banditPatrol', min: 0, max: 1 },
+            // Coastal-specific
+            { type: 'pirateShip', weightedRange: { 0: 85, 1: 15 } },
+            { type: 'npcFisher', min: 0, max: 3, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }, { attribute: 'populationDensity', value: populationDensity.high }] },
         ]
     },
     mountainRange: {
@@ -624,6 +638,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'bearSolitary', min: 0, max: 1 },
             { type: 'npcBandit', min: 0, max: 2 },
             { type: 'npcBanditCaptain', min: 0, max: 1 },
+            { type: 'npcMiner', min: 0, max: 2 },
         ]
     },
     cave: {
@@ -636,10 +651,13 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         inheritAttributes: ["temperature"],
         children: [
             {
-                type: { bearDen: 30, spiderNest: 20, wolfDen: 15, batColony: 15, ratWarren: 10, shadowHaunt: 5, goblinWarband: 3, ogreGang: 2 },
+                type: { bearDen: 30, spiderNest: 20, wolfDen: 15, batColony: 15, ratWarren: 10, shadowHaunt: 5, ogreGang: 2 },
                 min: 0,
                 max: 1
             },
+            { type: 'iceGoblinWarband', weightedRange: { 0: 95, 1: 5 }, conditions: [{ attribute: 'temperature', value: 'Cold' }] },
+            { type: 'fireGoblinWarband', weightedRange: { 0: 95, 1: 5 }, conditions: [{ attribute: 'temperature', value: 'Warm' }] },
+            { type: 'goblinWarband', weightedRange: { 0: 95, 1: 5 }, conditions: [{ attribute: 'temperature', value: 'Temperate' }] },
             {
                 type: {
                     dragonLairRed: 2, dragonLairBlack: 2, dragonLairBlue: 2, dragonLairGreen: 2, dragonLairWhite: 2,

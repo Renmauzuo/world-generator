@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<title>World Generator</title>
 </head>
-<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=e2cb492926e0a1a2b09d3facfb70ae6e">
+<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=a17b2a34ab7bbc9a6017e6909ee6315e">
 
 <body>
 	<div class="container panel" id="control-panel"><button id="button-generate-new">Generate New World</button><br><label for="starting-node">Starting with:</label><select id="starting-node">
@@ -13,11 +13,11 @@
 			<option value="plane">Plane</option>
 			<option value="materialPlane">Material Plane</option>
 			<option value="planet">Planet</option>
-		</select><label id="preset-label" for="load-preset">Load preset:</label><select id="load-preset"></select><label id="load-label" for="load-saved">Load saved:</label><select id="load-saved"></select><br><button id="button-import-root">Import</button><br><button id="button-export-root">Export</button><br></div>
+		</select><label id="preset-label" for="load-preset">Load preset:</label><select id="load-preset"></select><label id="load-label" for="load-saved">Load saved:</label><select id="load-saved"></select><br><button id="button-import-root">Import</button><br><button id="button-export-root">Export</button><br><button id="button-save">Save</button></div>
 	<div class="container" id="generation-container"></div>
 	<div class="container panel" id="info-panel">
 		<h2></h2><label for="name">Name:</label><input type="text" id="name">
-		<div id="fields"></div><button id="button-import-selected">Import Child</button><br><button id="button-export-selected">Export</button><br>
+		<div id="fields"></div><button id="button-import-selected">Import Child</button><br><button id="button-export-selected">Export</button><br><button id="button-delete-selected">Delete</button>
 	</div>
 	<div id="statblock-modal">
 		<div class="statblock-modal-content"><button id="statblock-modal-close">✕</button>
@@ -25,7 +25,7 @@
 		</div>
 	</div>
 	<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-	<script src="scripts/scripts.min.js?v=a7f18a31ef28de46a0ba41432e0533e4"></script>
+	<script src="scripts/scripts.min.js?v=c50d0f7c248d39e3e9d254f558248ac9"></script>
 </body>
 
 </html>

@@ -1,6 +1,6 @@
 import type { ObjectTypeTemplate } from '../../types';
 import { temperatureList } from '../constants';
-import { npcSetup } from '../../attributeGenerators';
+import { npcSetup, dragonbornNpcSetup, environmentalResistanceSetup } from '../../attributeGenerators';
 import {
     dragonNameGenerator,
     extraplanarNameGenerator,
@@ -205,11 +205,37 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     goblinWarband: {
         typeName: "Goblin Warband",
+        inheritAttributes: ["temperature"],
         children: [
             { type: 'goblinChief', min: 0, max: 1 },
+            { type: 'goblinShaman', weightedRange: { 0: 60, 1: 40 } },
             { type: 'goblinVeteran', min: 0, max: 2 },
             { type: 'goblinSolitary', min: 2, max: 6 },
             { type: 'goblinRunt', min: 0, max: 4 },
+            { type: 'worgAdult', min: 0, max: 2 }
+        ]
+    },
+    iceGoblinWarband: {
+        typeName: "Ice Goblin Warband",
+        attributes: { extraResistances: 'cold' },
+        children: [
+            { type: 'iceGoblinChief', min: 0, max: 1 },
+            { type: 'iceGoblinShaman', weightedRange: { 0: 60, 1: 40 } },
+            { type: 'iceGoblinVeteran', min: 0, max: 2 },
+            { type: 'iceGoblin', min: 2, max: 6 },
+            { type: 'iceGoblinRunt', min: 0, max: 4 },
+            { type: 'worgAdult', min: 0, max: 2 }
+        ]
+    },
+    fireGoblinWarband: {
+        typeName: "Fire Goblin Warband",
+        attributes: { extraResistances: 'fire' },
+        children: [
+            { type: 'fireGoblinChief', min: 0, max: 1 },
+            { type: 'fireGoblinShaman', weightedRange: { 0: 60, 1: 40 } },
+            { type: 'fireGoblinVeteran', min: 0, max: 2 },
+            { type: 'fireGoblin', min: 2, max: 6 },
+            { type: 'fireGoblinRunt', min: 0, max: 4 },
             { type: 'worgAdult', min: 0, max: 2 }
         ]
     },
@@ -477,13 +503,22 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         children: [
             { type: 'npcBanditCaptain', min: 1, max: 1 },
             { type: 'npcBandit', min: 2, max: 6 },
-            { type: 'npcThug', min: 0, max: 2 },
+            { type: 'npcBanditBrute', min: 0, max: 2 },
+            { type: 'npcBanditLookout', weightedRange: { 0: 40, 1: 60 } },
         ]
     },
     banditPatrol: {
         typeName: "Bandit Patrol",
         children: [
             { type: 'npcBandit', min: 2, max: 4 },
+        ]
+    },
+    pirateShip: {
+        typeName: "Pirate Ship",
+        children: [
+            { type: 'npcPirateCaptain', min: 1, max: 1 },
+            { type: 'npcFirstMate', min: 1, max: 1 },
+            { type: 'npcPirate', min: 3, max: 8 },
         ]
     },
     /*** Groups End ***/
@@ -618,6 +653,78 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         customSetup: npcSetup,
         attributes: { challengeRating: [.125, .25, .5, 1], alignment: '', lineage: '' }
     },
+    npcBanditBrute: {
+        typeName: "Bandit Brute",
+        nameGenerator: npcNameGenerator,
+        creature: "thug",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.5, 1, 2], alignment: '', lineage: '' }
+    },
+    npcBanditLookout: {
+        typeName: "Bandit Lookout",
+        nameGenerator: npcNameGenerator,
+        creature: "scout",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.5, 1, 2], alignment: '', lineage: '' }
+    },
+    // ─── Pirate NPCs ───
+    npcPirateCaptain: {
+        typeName: "Pirate Captain",
+        nameGenerator: npcNameGenerator,
+        creature: "banditCaptain",
+        customSetup: npcSetup,
+        attributes: { challengeRating: { min: 2, max: 4 }, alignment: '', lineage: '' }
+    },
+    npcPirate: {
+        typeName: "Pirate",
+        nameGenerator: npcNameGenerator,
+        creature: "bandit",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5], alignment: '', lineage: '' }
+    },
+    npcFirstMate: {
+        typeName: "First Mate",
+        nameGenerator: npcNameGenerator,
+        creature: "veteran",
+        customSetup: npcSetup,
+        attributes: { challengeRating: { min: 2, max: 5 }, alignment: '', lineage: '' }
+    },
+    // ─── Profession Commoners ───
+    npcFarmer: {
+        typeName: "Farmer",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcFisher: {
+        typeName: "Fisher",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcLumberjack: {
+        typeName: "Lumberjack",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcMiner: {
+        typeName: "Miner",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcShepherd: {
+        typeName: "Shepherd",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
 
     // Wolves
     wolfAlpha: {
@@ -666,6 +773,19 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Piglet",
         creature: "boar",
         attributes: { challengeRating: [0] }
+    },
+
+    // Domesticated animals
+    pig: {
+        typeName: "Pig",
+        creature: "boar",
+        attributes: { challengeRating: [0, .125] }
+    },
+    cow: {
+        typeName: "Cow",
+        creature: "horse",
+        variant: "riding",
+        attributes: { challengeRating: [.125, .25] }
     },
 
     // Horses
@@ -897,6 +1017,84 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         creature: "goblin",
         variant: "goblin",
         attributes: { challengeRating: { min: 4, max: 6 } }
+    },
+    goblinShaman: {
+        typeName: "Goblin Shaman",
+        creature: "priest",
+        variant: "healer",
+        attributes: { challengeRating: [.25, .5, 1, 2] }
+    },
+    // Ice Goblins — cold caves
+    iceGoblinRunt: {
+        typeName: "Ice Goblin Runt",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [0, .125], extraResistances: 'cold' }
+    },
+    iceGoblin: {
+        typeName: "Ice Goblin",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [.25, .5, 1], extraResistances: 'cold' }
+    },
+    iceGoblinVeteran: {
+        typeName: "Ice Goblin Veteran",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: { min: 2, max: 4 }, extraResistances: 'cold' }
+    },
+    iceGoblinChief: {
+        typeName: "Ice Goblin Chief",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: { min: 4, max: 6 }, extraResistances: 'cold' }
+    },
+    iceGoblinShaman: {
+        typeName: "Ice Goblin Shaman",
+        creature: "priest",
+        variant: "healer",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [.25, .5, 1, 2], extraResistances: 'cold' }
+    },
+    // Fire Goblins — warm caves
+    fireGoblinRunt: {
+        typeName: "Fire Goblin Runt",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [0, .125], extraResistances: 'fire' }
+    },
+    fireGoblin: {
+        typeName: "Fire Goblin",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [.25, .5, 1], extraResistances: 'fire' }
+    },
+    fireGoblinVeteran: {
+        typeName: "Fire Goblin Veteran",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: { min: 2, max: 4 }, extraResistances: 'fire' }
+    },
+    fireGoblinChief: {
+        typeName: "Fire Goblin Chief",
+        creature: "goblin",
+        variant: "goblin",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: { min: 4, max: 6 }, extraResistances: 'fire' }
+    },
+    fireGoblinShaman: {
+        typeName: "Fire Goblin Shaman",
+        creature: "priest",
+        variant: "healer",
+        inheritAttributes: ["extraResistances"],
+        attributes: { challengeRating: [.25, .5, 1, 2], extraResistances: 'fire' }
     },
 
     // Demons
@@ -1340,86 +1538,78 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         attributes: { challengeRating: { min: 8, max: 12 } }
     },
 
-    // Dragons — rare lair encounters, adults and ancients are legendary
-    dragonLairRed: {
-        typeName: "Red Dragon",
+    // ─── Dragon Lairs ───
+    // Each lair sets dragonColor and alignment, which children inherit.
+    // The lair contains the dragon itself plus optional family and dragonborn servants.
+    dragonLairRed:    { typeName: "Red Dragon Lair",    attributes: { dragonColor: 'red',    alignment: 'Chaotic Evil' },  children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornPriest', weightedRange: { 0: 60, 1: 40 } }, { type: 'dragonbornKnight', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 3 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairBlack:  { typeName: "Black Dragon Lair",  attributes: { dragonColor: 'black',  alignment: 'Chaotic Evil' },  children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornPriest', weightedRange: { 0: 70, 1: 30 } }, { type: 'dragonbornServant', min: 0, max: 2 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairBlue:   { typeName: "Blue Dragon Lair",   attributes: { dragonColor: 'blue',   alignment: 'Chaotic Evil' },  children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornPriest', weightedRange: { 0: 60, 1: 40 } }, { type: 'dragonbornKnight', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 3 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairGreen:  { typeName: "Green Dragon Lair",  attributes: { dragonColor: 'green',  alignment: 'Chaotic Evil' },  children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 3 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairWhite:  { typeName: "White Dragon Lair",  attributes: { dragonColor: 'white',  alignment: 'Chaotic Evil' },  children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 2 } ] },
+    dragonLairGold:   { typeName: "Gold Dragon Lair",   attributes: { dragonColor: 'gold',   alignment: 'Lawful Good' },   children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornPriest', weightedRange: { 0: 50, 1: 50 } }, { type: 'dragonbornKnight', min: 0, max: 3 }, { type: 'dragonbornServant', min: 0, max: 3 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairSilver: { typeName: "Silver Dragon Lair", attributes: { dragonColor: 'silver', alignment: 'Lawful Good' },   children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornPriest', weightedRange: { 0: 50, 1: 50 } }, { type: 'dragonbornKnight', min: 0, max: 3 }, { type: 'dragonbornServant', min: 0, max: 3 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairBronze: { typeName: "Bronze Dragon Lair", attributes: { dragonColor: 'bronze', alignment: 'Lawful Good' },   children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornKnight', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 2 }, { type: 'dragonbornGuard', min: 0, max: 2 } ] },
+    dragonLairBrass:  { typeName: "Brass Dragon Lair",  attributes: { dragonColor: 'brass',  alignment: 'Lawful Good' },   children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 2 } ] },
+    dragonLairCopper: { typeName: "Copper Dragon Lair", attributes: { dragonColor: 'copper', alignment: 'Lawful Good' },   children: [ { type: 'dragonAdult', min: 1, max: 1 }, { type: 'dragonYoung', min: 0, max: 2 }, { type: 'dragonbornServant', min: 0, max: 2 }, { type: 'dragonbornGuard', min: 0, max: 1 } ] },
+
+    // Dragon creatures — inherit dragonColor and alignment from the lair
+    dragonAdult: {
+        typeName: "Dragon",
         nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "red",
-        legendary: 3,
-        attributes: { challengeRating: { min: 10, max: 24 }, alignment: 'Chaotic Evil' }
+        dynamicCreature: true,
+        inheritAttributes: ["dragonColor", "alignment"],
+        attributes: { challengeRating: { min: 10, max: 24 }, dragonColor: 'red', alignment: 'Chaotic Evil' },
+        customSetup: (node) => {
+            node.attributes!.creature = 'dragon';
+            node.attributes!.variant = node.attributes!.dragonColor;
+            node.attributes!.legendary = 3;
+        },
     },
-    dragonLairBlack: {
-        typeName: "Black Dragon",
+    dragonYoung: {
+        typeName: "Young Dragon",
         nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "black",
-        legendary: 3,
-        attributes: { challengeRating: { min: 7, max: 21 }, alignment: 'Chaotic Evil' }
+        dynamicCreature: true,
+        inheritAttributes: ["dragonColor", "alignment"],
+        attributes: { challengeRating: { min: 2, max: 10 }, dragonColor: 'red', alignment: 'Chaotic Evil' },
+        customSetup: (node) => {
+            node.attributes!.creature = 'dragon';
+            node.attributes!.variant = node.attributes!.dragonColor;
+        },
     },
-    dragonLairBlue: {
-        typeName: "Blue Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "blue",
-        legendary: 3,
-        attributes: { challengeRating: { min: 9, max: 23 }, alignment: 'Chaotic Evil' }
+
+    // Dragonborn servants — inherit dragonColor, race is pre-set to dragonborn
+    dragonbornPriest: {
+        typeName: "Dragon Priest",
+        nameGenerator: npcNameGenerator,
+        creature: "priest",
+        variant: "warpriest",
+        inheritAttributes: ["dragonColor"],
+        customSetup: dragonbornNpcSetup,
+        attributes: { challengeRating: { min: 2, max: 5 }, race: 'dragonborn', dragonColor: '', alignment: '', lineage: '' }
     },
-    dragonLairGreen: {
-        typeName: "Green Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "green",
-        legendary: 3,
-        attributes: { challengeRating: { min: 8, max: 22 }, alignment: 'Chaotic Evil' }
+    dragonbornKnight: {
+        typeName: "Dragon Knight",
+        nameGenerator: npcNameGenerator,
+        creature: "knight",
+        inheritAttributes: ["dragonColor"],
+        customSetup: dragonbornNpcSetup,
+        attributes: { challengeRating: { min: 3, max: 6 }, race: 'dragonborn', dragonColor: '', alignment: '', lineage: '' }
     },
-    dragonLairWhite: {
-        typeName: "White Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "white",
-        legendary: 3,
-        attributes: { challengeRating: { min: 6, max: 20 }, alignment: 'Chaotic Evil' }
+    dragonbornServant: {
+        typeName: "Dragon Servant",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        inheritAttributes: ["dragonColor"],
+        customSetup: dragonbornNpcSetup,
+        attributes: { challengeRating: [0], race: 'dragonborn', dragonColor: '', alignment: '', lineage: '' }
     },
-    dragonLairGold: {
-        typeName: "Gold Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "gold",
-        legendary: 3,
-        attributes: { challengeRating: { min: 10, max: 24 }, alignment: 'Lawful Good' }
-    },
-    dragonLairSilver: {
-        typeName: "Silver Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "silver",
-        legendary: 3,
-        attributes: { challengeRating: { min: 9, max: 23 }, alignment: 'Lawful Good' }
-    },
-    dragonLairBronze: {
-        typeName: "Bronze Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "bronze",
-        legendary: 3,
-        attributes: { challengeRating: { min: 8, max: 22 }, alignment: 'Lawful Good' }
-    },
-    dragonLairBrass: {
-        typeName: "Brass Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "brass",
-        legendary: 3,
-        attributes: { challengeRating: { min: 6, max: 20 }, alignment: 'Lawful Good' }
-    },
-    dragonLairCopper: {
-        typeName: "Copper Dragon",
-        nameGenerator: dragonNameGenerator,
-        creature: "dragon",
-        variant: "copper",
-        legendary: 3,
-        attributes: { challengeRating: { min: 7, max: 21 }, alignment: 'Lawful Good' }
+    dragonbornGuard: {
+        typeName: "Dragon Guard",
+        nameGenerator: npcNameGenerator,
+        creature: "guard",
+        inheritAttributes: ["dragonColor"],
+        customSetup: dragonbornNpcSetup,
+        attributes: { challengeRating: [.125, .25, .5, 1], race: 'dragonborn', dragonColor: '', alignment: '', lineage: '' }
     },
 
     // Rhinoceros

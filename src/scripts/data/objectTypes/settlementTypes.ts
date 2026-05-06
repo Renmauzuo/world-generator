@@ -28,6 +28,8 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'districtMercantile', min: 1, max: 3 },
             { type: 'districtResidential', min: 2, max: 4 },
             { type: 'districtWealthy', min: 1, max: 2 },
+            { type: 'districtMilitary', min: 1, max: 2 },
+            { type: 'districtUndercity', weightedRange: { 0: 30, 1: 70 } },
         ]
     },
     cityLarge: {
@@ -40,6 +42,8 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'districtMercantile', min: 1, max: 2 },
             { type: 'districtResidential', min: 1, max: 3 },
             { type: 'districtWealthy', min: 1, max: 1 },
+            { type: 'districtMilitary', min: 1, max: 1 },
+            { type: 'districtUndercity', weightedRange: { 0: 50, 1: 50 } },
         ]
     },
     citySmall: {
@@ -52,6 +56,8 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'districtMercantile', min: 1, max: 1 },
             { type: 'districtResidential', min: 1, max: 2 },
             { type: 'districtWealthy', weightedRange: { 0: 40, 1: 60 } },
+            { type: 'districtMilitary', weightedRange: { 0: 30, 1: 70 } },
+            { type: 'districtUndercity', weightedRange: { 0: 70, 1: 30 } },
         ]
     },
     townLarge: {
@@ -70,6 +76,7 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'shopMagic', min: 0, max: 1 },
             { type: { houseSmall: 30, houseMedium: 45, houseLarge: 25 }, min: 4, max: 8 },
             { type: 'mansionSmall', weightedRange: { 0: 60, 1: 35, 2: 5 } },
+            { type: 'farm', min: 1, max: 3 },
         ]
     },
     townSmall: {
@@ -85,6 +92,7 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'shopStables', min: 0, max: 1 },
             { type: { houseSmall: 40, houseMedium: 45, houseLarge: 15 }, min: 3, max: 6 },
             { type: 'mansionSmall', weightedRange: { 0: 85, 1: 15 } },
+            { type: 'farm', min: 1, max: 2 },
         ]
     },
     village: {
@@ -97,6 +105,7 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'shopTavern', min: 0, max: 1 },
             { type: { houseSmall: 60, houseMedium: 35, houseLarge: 5 }, min: 2, max: 5 },
             { type: 'mansionSmall', weightedRange: { 0: 95, 1: 5 } },
+            { type: 'farm', min: 1, max: 3 },
         ]
     },
     hamlet: {
@@ -106,6 +115,7 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         attributes: { settlementType: settlementTypes.standard },
         children: [
             { type: { houseSmall: 80, houseMedium: 20 }, min: 1, max: 3 },
+            { type: 'farm', min: 1, max: 2 },
         ]
     },
     thorp: {
@@ -113,6 +123,10 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         categories: ['settlement'],
         customSetup: (node) => settlementSetup(node, objectTypesRef),
         attributes: { settlementType: settlementTypes.standard },
+        children: [
+            { type: 'houseSmall', min: 1, max: 3 },
+            { type: 'farm', weightedRange: { 0: 30, 1: 70 } },
+        ]
     },
     districtTemple: {
         typeName: "Temple District",
@@ -144,6 +158,22 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Wealthy District",
         children: [
             { type: { mansionSmall: 60, mansionLarge: 40 }, min: 2, max: 5 },
+            { type: 'noblesCourt', weightedRange: { 0: 40, 1: 60 } },
+        ]
+    },
+    districtMilitary: {
+        typeName: "Military District",
+        children: [
+            { type: 'barracks', min: 1, max: 3 },
+            { type: 'guardTower', min: 1, max: 2 },
+        ]
+    },
+    districtUndercity: {
+        typeName: "Undercity",
+        children: [
+            { type: 'thievesGuild', weightedRange: { 0: 30, 1: 70 } },
+            { type: 'ratWarren', min: 1, max: 3 },
+            { type: 'shadowHaunt', weightedRange: { 0: 70, 1: 30 } },
         ]
     },
     // ─── Housing Types ───
@@ -182,8 +212,85 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Large Mansion",
         children: [
             { type: 'npcNobleResident', min: 2, max: 4 },
-            { type: 'npcServant', min: 2, max: 4 },
+            { type: 'npcButler', min: 1, max: 1 },
+            { type: 'npcCook', min: 1, max: 1 },
+            { type: { npcHousekeeper: 40, npcValet: 30, npcServant: 30 }, min: 1, max: 3 },
             { type: 'npcHouseGuard', min: 1, max: 2 },
+        ]
+    },
+    // ─── Farms ───
+    farm: {
+        typeName: "Farm",
+        children: [
+            { type: 'npcFarmer', min: 1, max: 2 },
+            { type: { farmCrops: 50, farmOrchard: 25, farmVegetableGarden: 25 }, min: 1, max: 2 },
+            { type: { farmPigs: 30, farmCattle: 30, farmChickens: 25, farmHorses: 15 }, min: 1, max: 2 },
+        ]
+    },
+    farmCrops: {
+        typeName: "Wheat Field",
+    },
+    farmOrchard: {
+        typeName: "Orchard",
+    },
+    farmVegetableGarden: {
+        typeName: "Vegetable Garden",
+    },
+    farmPigs: {
+        typeName: "Pig Pen",
+        children: [
+            { type: 'pig', min: 2, max: 6 },
+        ]
+    },
+    farmCattle: {
+        typeName: "Cattle Pasture",
+        children: [
+            { type: 'cow', min: 2, max: 6 },
+        ]
+    },
+    farmChickens: {
+        typeName: "Chicken Coop",
+    },
+    farmHorses: {
+        typeName: "Horse Paddock",
+        children: [
+            { type: 'horseMare', min: 1, max: 3 },
+            { type: 'horseFoal', min: 0, max: 2 },
+        ]
+    },
+    // ─── Military & Civic Buildings ───
+    barracks: {
+        typeName: "Barracks",
+        children: [
+            { type: 'npcGuard', min: 3, max: 8 },
+            { type: 'npcVeteran', min: 1, max: 2 },
+            { type: 'npcWatchCaptain', min: 1, max: 1 },
+        ]
+    },
+    guardTower: {
+        typeName: "Guard Tower",
+        children: [
+            { type: 'npcGateGuard', min: 2, max: 4 },
+        ]
+    },
+    noblesCourt: {
+        typeName: "Noble's Court",
+        children: [
+            { type: 'npcNobleResident', min: 1, max: 2 },
+            { type: 'npcCourtier', min: 2, max: 4 },
+            { type: 'npcCourtMage', weightedRange: { 0: 40, 1: 60 } },
+            { type: 'npcHerald', min: 1, max: 1 },
+            { type: 'npcHouseGuard', min: 1, max: 3 },
+        ]
+    },
+    // ─── Criminal Buildings ───
+    thievesGuild: {
+        typeName: "Thieves' Guild",
+        children: [
+            { type: 'npcGuildmaster', min: 1, max: 1 },
+            { type: 'npcPickpocket', min: 2, max: 5 },
+            { type: 'npcEnforcer', min: 1, max: 3 },
+            { type: 'npcFence', min: 0, max: 1 },
         ]
     },
     temple: {
@@ -193,7 +300,8 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         customSetup: (node) => templeSetup(node, getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod')),
         children: [
             { type: 'npcAcolyte', min: 1, max: 20 },
-            { type: 'npcPriest', min: 0, max: 2 }
+            { type: 'npcPriest', min: 0, max: 2 },
+            { type: 'npcPilgrim', min: 0, max: 4 },
         ]
     },
     knighthoodOrder: {
@@ -239,6 +347,8 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         nameGenerator: tavernNameGenerator,
         children: [
             { type: 'npcTavernkeeper', min: 1, max: 1 },
+            { type: 'npcBarmaid', min: 0, max: 2 },
+            { type: 'npcBard', weightedRange: { 0: 50, 1: 50 } },
             { type: 'npcCustomer', min: 0, max: 4 },
             { type: 'npcCustomerThug', min: 0, max: 2 },
             { type: 'npcCustomerScout', min: 0, max: 1 },
@@ -373,12 +483,128 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         customSetup: npcSetup,
         attributes: { challengeRating: [0], alignment: '', lineage: '' }
     },
+    npcButler: {
+        typeName: "Butler",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcCook: {
+        typeName: "Cook",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcHousekeeper: {
+        typeName: "Housekeeper",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcValet: {
+        typeName: "Valet",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
     npcHouseGuard: {
         typeName: "House Guard",
         nameGenerator: npcNameGenerator,
         creature: "guard",
         customSetup: npcSetup,
         attributes: { challengeRating: [.125, .25, .5, 1], alignment: '', lineage: '' }
+    },
+    // ─── Military & Civic NPC wrappers ───
+    npcWatchCaptain: {
+        typeName: "Watch Captain",
+        nameGenerator: npcNameGenerator,
+        creature: "veteran",
+        customSetup: npcSetup,
+        attributes: { challengeRating: { min: 3, max: 5 }, alignment: '', lineage: '' }
+    },
+    npcGateGuard: {
+        typeName: "Gate Guard",
+        nameGenerator: npcNameGenerator,
+        creature: "guard",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5, 1], alignment: '', lineage: '' }
+    },
+    npcCourtier: {
+        typeName: "Courtier",
+        nameGenerator: npcNameGenerator,
+        creature: "noble",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5, 1], alignment: '', lineage: '' }
+    },
+    npcCourtMage: {
+        typeName: "Court Mage",
+        nameGenerator: npcNameGenerator,
+        creature: "mage",
+        customSetup: npcSetup,
+        attributes: { challengeRating: { min: 4, max: 8 }, alignment: '', lineage: '' }
+    },
+    npcHerald: {
+        typeName: "Herald",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    // ─── Criminal NPC wrappers ───
+    npcGuildmaster: {
+        typeName: "Guildmaster",
+        nameGenerator: npcNameGenerator,
+        creature: "banditCaptain",
+        customSetup: npcSetup,
+        attributes: { challengeRating: { min: 2, max: 4 }, alignment: '', lineage: '' }
+    },
+    npcPickpocket: {
+        typeName: "Pickpocket",
+        nameGenerator: npcNameGenerator,
+        creature: "bandit",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5], alignment: '', lineage: '' }
+    },
+    npcEnforcer: {
+        typeName: "Enforcer",
+        nameGenerator: npcNameGenerator,
+        creature: "thug",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.5, 1, 2], alignment: '', lineage: '' }
+    },
+    npcFence: {
+        typeName: "Fence",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    // ─── Tavern NPC wrappers ───
+    npcBarmaid: {
+        typeName: "Barmaid",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    npcBard: {
+        typeName: "Bard",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
+    },
+    // ─── Temple NPC wrappers ───
+    npcPilgrim: {
+        typeName: "Pilgrim",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], alignment: '', lineage: '' }
     },
 
     land: {

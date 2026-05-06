@@ -175,3 +175,33 @@ input, select, label, button {
     font-family: inherit;
     font-size: inherit;
 }
+
+.add-child-section {
+    padding-left: 0;
+
+    summary {
+        cursor: pointer;
+        font-weight: bold;
+        margin-bottom: 0.5em;
+    }
+
+    label {
+        font-size: 0.85em;
+        color: #555;
+    }
+}
+
+.add-child-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0.5em;
+
+    select {
+        flex: 1;
+        min-width: 0;
+    }
+
+    button {
+        flex-shrink: 0;
+    }
+}
