@@ -857,24 +857,14 @@ function saveWorld(): void {
     saved = true;
 }
 
-/** Converts a node and all its children into a string for save/export.
- *  Since nodes reference their DOM objects and parents, native JSON.stringify can't be used
- *  without cloning and pruning the node tree first. */
+/** Converts a node and all its children into a JSON string for save/export.
+ *  Uses a replacer to skip non-serializable properties (domElement, parent)
+ *  without mutating the live node tree. */
 function stringifyNodes(node: WorldNode): string {
-    const rootCopy: Partial<WorldNode> = {};
-    Object.assign(rootCopy, node);
-    recursivePruneChildren(rootCopy as WorldNode);
-    return JSON.stringify(rootCopy);
-}
-
-function recursivePruneChildren(node: WorldNode): void {
-    delete node.domElement;
-    delete node.parent;
-    if (node.children) {
-        for (const index in node.children) {
-            recursivePruneChildren(node.children[index]);
-        }
-    }
+    return JSON.stringify(node, (key, value) => {
+        if (key === 'domElement' || key === 'parent') return undefined;
+        return value;
+    });
 }
 
 function addWorldToList(worldName: string): void {
