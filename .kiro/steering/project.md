@@ -12,7 +12,7 @@ It is intended for public release eventually.
 - **Build**: Gulp 4 + Rollup (via `gulp-better-rollup`) + `rollup-plugin-typescript2`
 - **CSS**: Dart Sass (`sass` package) + PostCSS + cssnano
 - **Runtime**: jQuery (loaded from CDN), vanilla browser APIs
-- **Packages**: `@toolkit5e/base`, `@toolkit5e/monster-scaler`, and `@toolkit5e/statblock` (consumed via `file:` references to the local toolkit5e workspace for development)
+- **Packages**: `@toolkit5e/base`, `@toolkit5e/monster-scaler`, and `@toolkit5e/statblock` (consumed via npm versions like `^1.1.4` for production builds; the monster-scaler site uses `file:` references for local development)
 - **Output**: `docs/` (GitHub Pages compatible)
 
 ### Build Commands
@@ -96,11 +96,18 @@ Settlements are unified into a single set of tiers: `thorp`, `hamlet`, `village`
 
 The `settlementType` attribute is editable by users and drives condition-based children (e.g. a docks district only spawns in coastal settlements). This replaces the old pattern of duplicating settlement types per biome.
 
-**Settlement hierarchy**: Cities (citySmall, cityLarge, metropolis) should only have **districts** as direct children. Districts and towns/villages have **buildings** as direct children. NPCs spawn inside buildings, not directly in settlements.
+**Settlement hierarchy**:
+- **Cities** (citySmall, cityLarge, metropolis) only have **districts** as direct children: `districtTemple`, `districtMercantile`, `districtResidential`, `districtWealthy`, `districtMilitary`, `districtUndercity`.
+- **Districts** contain **buildings**: temples, shops, barracks, guard towers, thieves' guild, nobles' court, knighthood orders.
+- **Towns** (townSmall, townLarge) have **buildings** directly: temples, shops, farms, knighthood orders.
+- **Villages/hamlets** have minimal buildings: general store, tavern, farms, houses.
+- **Thorps** have just houses and maybe a farm.
 
-Current building types: `temple` (worship-based, contains acolytes and priests), `knighthoodOrder` (worship-based, contains grandmaster + knights + squires).
+NPCs spawn inside buildings, not directly in settlements.
 
-Current district types: `districtTemple` (contains temples and knighthood orders).
+Current building types: `temple` (worship-based, contains acolytes and priests), `knighthoodOrder` (worship-based, contains grandmaster + knights + squires), `shop` (contains shopkeeper NPC), `barracks` (contains guards/veterans), `guardTower`, `thievesGuild` (contains bandits/thugs), `noblesCourt` (contains nobles), `tavern` (contains tavernkeeper), `generalStore` (contains shopkeeper), `farm` (contains farmer + crops/livestock), `house`.
+
+Current district types: `districtTemple` (contains temples and knighthood orders), `districtMercantile` (contains shops), `districtResidential` (contains houses, taverns), `districtWealthy` (contains nobles' court, houses), `districtMilitary` (contains barracks, guard towers), `districtUndercity` (contains thieves' guild, taverns).
 
 Parent biomes (coast, plains, etc.) spawn settlements using weighted random type selection based on population density.
 
@@ -143,7 +150,11 @@ Presets also serve as a **litmus test for the generator's expressiveness**. If a
 - **Default root** is `multiverse` — `createRootNode('districtTemple')` in `scripts.ts` is a dev leftover and should be reverted
 - Remaining `//TODO` stubs: moons/celestial bodies
 - **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. NPC statblocks now cover: commoner, guard, bandit, bandit captain, thug, scout, noble, knight, veteran, mage, priest. Major categories remaining: other giants, monstrosities, more humanoid races (kobold, gnoll), constructs, oozes, more undead.
-- **Settlement districts and buildings** — cities should only have districts as children, districts and towns have buildings. Currently NPCs spawn directly in settlements as a placeholder. Need to add more district types (market, residential, military, docks) and building types (tavern, shop, barracks, guild hall) to house NPCs properly.
+- ~~**Settlement districts and buildings**~~ — DONE. Cities have 6 district types (temple, mercantile, residential, wealthy, military, undercity), districts/towns have buildings (temples, shops, barracks, guard towers, taverns, farms, etc.), villages/hamlets have minimal buildings, thorps have houses.
+- ~~**Worship dropdown**~~ — DONE. Deity/domain/dedication options + custom text field.
+- ~~**Save button and auto-save**~~ — DONE. Save button + debounced auto-save to localStorage via `markUnsaved()`.
+- ~~**Delete node button**~~ — DONE. Removes selected node and its subtree from the tree.
+- ~~**Add Child UI**~~ — DONE. Dropdown with valid child types for the selected node, plus an "all types" dropdown for manual overrides.
 - **Split creatureTypes.ts** — at ~1450 lines it's the largest partial file. Could be split further into NPCs (base NPC types), groups/encounters (wolf packs, demon hordes, etc.), and individual creatures (wolves, bears, dragons, etc.).
 - **Racial higher-level spells** — elf and tiefling lineages grant spells at levels 3 and 5. Need a way to determine NPC "level" from CR to decide which spells are available.
 - **Worship weighting** — deity selection for temples/NPCs could be weighted by geography (sea god near coast) and racial demographics (nature god in elven areas). Core system works, weighting is a refinement.
@@ -261,6 +272,26 @@ Current NPC types:
 
 **Knighthood Orders**: Similar to temples — worship-based organizations containing a grandmaster, knights, and squires. Named via `knighthoodOrderNameGenerator` (worship-based, flavor symbol, or named order). Spawn in temple districts for cities, directly in large towns.
 
+**Role-specific NPC wrappers**: Reuse base creature templates (commoner, guard, etc.) with descriptive `typeName` values for context. Examples: `npcShopkeeper` (commoner), `npcBlacksmith` (commoner), `npcTavernkeeper` (commoner), `npcButler` (commoner), `npcCook` (commoner). These spawn inside their respective buildings and inherit worship/demographics from the parent chain.
+
+**Wilderness NPC groups**: Spawn in biomes alongside beast/monster groups:
+- `merchantCaravan` — traders with guards, spawn on roads/plains
+- `guardPatrol` — guards + veteran leader
+- `knightsErrant` — wandering knights
+- `undeadHunters` — scouts/veterans specializing in undead areas
+- `monsterHunters` — scouts/veterans in dangerous biomes
+- `scoutParty` — scouts in wilderness
+- `banditCamp` / `banditPatrol` — bandits + captain in lawless areas
+- `pirateShip` — bandits/thugs on coastal/water biomes
+
+**Dragon lairs**: `dragonLair` is an area type that sets a `dragonColor` attribute and spawns an adult dragon + young dragons + dragonborn servants. The lair's `dragonColor` is inherited by children. Uses `dragonbornNpcSetup` for color-specific dragonborn (pre-sets race to dragonborn with matching lineage before `npcSetup` runs, so `npcSetup` skips race/lineage selection).
+
+**Environmental variants**: Temperature-conditioned caves can spawn ice goblins (cold biomes) or fire goblins (fire/hot biomes) using condition-based children with temperature/element checks.
+
+**Profession commoners**: Biome-specific civilian NPCs using the commoner template with role typeNames: `npcFarmer` (plains/farms), `npcFisher` (coast/water), `npcLumberjack` (forest), `npcMiner` (mountain/underground), `npcShepherd` (hills/plains).
+
+**Farms**: A building type (`farm`) that contains farmer NPCs, crops (flavor children), and livestock (beast groups like chicken coops, pig pens, cattle herds). Spawn in towns, villages, hamlets, and thorps.
+
 ### Info Panel — Special Renderers
 - **Creature/Variant** (dynamic creature nodes): creature dropdown with friendly names from `monsterList`, variant dropdown that rebuilds when creature changes, hidden when no variants exist
 - **Challenge Rating**: always a dropdown of all valid CRs with `stringForCR` display (1/8, 1/4, 1/2, etc.)
@@ -345,6 +376,10 @@ Using one `monsterList` entry at different CRs or with different display names:
 - Category attribute injection uses "set if not already defined" — type-specific attributes take precedence over category defaults.
 - The tree UI uses custom `div.node` markup with separate click targets: `.node-toggle` for expand/collapse, `.node-label` for selection. Not `<details>`/`<summary>`.
 - `attributeEditors` overrides the default editor for specific attributes (e.g. CR → dropdown, race → dropdown, gender → dropdown). The generic select renderer uses the `labels` map for display text.
+- `npcSetup` skips race/lineage selection if already set on the node — allows pre-set race for specific NPC types (e.g. dragonborn servants in dragon lairs via `dragonbornNpcSetup`).
+- `markUnsaved()` replaces direct `saved = false` — debounces auto-save to localStorage so rapid edits don't thrash storage.
+- The info panel change handler skips elements without an `id` or with class `add-child-select` to avoid triggering saves on UI-only controls.
+- `recursivePostParseProcess` cleans up stale `"undefined"` attribute keys from older saves during tree load/import.
 - **Design philosophy**: data defines what exists, code defines what makes sense. `objectTypes` is the backbone (what can spawn where), while `customSetup` functions, the dynamic creature scorer, and tag-based selection add the intelligence that makes generated worlds feel coherent.
 
 ## Steering Maintenance

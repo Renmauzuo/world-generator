@@ -9,9 +9,9 @@
   "dependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-node-resolve": "^16.0.3",
-    "@toolkit5e/base": "file:../toolkit5e/packages/base",
-    "@toolkit5e/monster-scaler": "file:../toolkit5e/packages/monster-scaler",
-    "@toolkit5e/statblock": "file:../toolkit5e/packages/statblock",
+    "@toolkit5e/base": "^1.1.5",
+    "@toolkit5e/monster-scaler": "^1.1.5",
+    "@toolkit5e/statblock": "^1.1.5",
     "@types/jquery": "3.5.29",
     "autoprefixer": "^10.2.6",
     "cssnano": "^5.0.5",
