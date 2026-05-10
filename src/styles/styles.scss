@@ -44,6 +44,8 @@ details, #generation-container p {
 
 .node-label {
     cursor: pointer;
+    margin-bottom: 4px;
+    display: inline-block;
 
     &:hover {
         text-decoration: underline;
@@ -204,4 +206,23 @@ input, select, label, button {
     button {
         flex-shrink: 0;
     }
+}
+
+// Drag-and-drop styles (SortableJS)
+.node-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+    border-radius: 3px;
+}
+
+.node-chosen {
+    background: #f0f8ff;
+    border-radius: 3px;
+}
+
+.node-drag {
+    opacity: 0.9;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
 }

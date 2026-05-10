@@ -7,6 +7,7 @@ import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
 import { stringForCR, toTitleCase, races as toolkit5eRaces } from '@toolkit5e/base';
+import Sortable from 'sortablejs';
 
 // Type helper — toolkit5e RaceData has lineages, but the world generator's own RaceData shadows it.
 // Use `any` for lineage lookups to avoid the name collision.
@@ -194,6 +195,7 @@ $(function () {
                 $('<span class="node-toggle">▼</span>').prependTo($nodeEl);
             }
             $childrenContainer = $('<div class="node-children"></div>').appendTo($nodeEl);
+            initSortable($childrenContainer[0]);
         }
         $childrenContainer.show();
         $nodeEl.children('.node-toggle').html('▼');
@@ -355,7 +357,23 @@ $(function () {
                 selectedNode.children = [];
             }
             selectedNode.children.push(newChild);
-            selectedNode.domElement!.append(recursiveGenerateDOMElement(newChild));
+            newChild.parent = selectedNode;
+            recursivePostParseProcess(newChild);
+
+            // Ensure the node has a children container
+            const $nodeEl = selectedNode.domElement!;
+            let $childrenContainer = $nodeEl.children('.node-children');
+            if (!$childrenContainer.length) {
+                if (!$nodeEl.children('.node-toggle').length) {
+                    $('<span class="node-toggle">▼</span>').prependTo($nodeEl);
+                }
+                $childrenContainer = $('<div class="node-children"></div>').appendTo($nodeEl);
+                initSortable($childrenContainer[0]);
+            }
+            $childrenContainer.append(recursiveGenerateDOMElement(newChild));
+            $childrenContainer.show();
+            $nodeEl.children('.node-toggle').html('▼');
+            markUnsaved();
         }
     });
 
@@ -781,12 +799,16 @@ function generateChildrenForNode(node: WorldNode): void {
 function addChildToNode(childType: string, node: WorldNode): void {
     const childNode = generateNode(childType, node);
     node.children!.push(childNode);
-    const $childrenContainer = node.domElement!.children('.node-children');
-    if ($childrenContainer.length) {
-        domObjectForNode(childNode).appendTo($childrenContainer);
-    } else {
-        domObjectForNode(childNode).appendTo(node.domElement!);
+    let $childrenContainer = node.domElement!.children('.node-children');
+    if (!$childrenContainer.length) {
+        // Create a children container if one doesn't exist yet
+        if (!node.domElement!.children('.node-toggle').length) {
+            $('<span class="node-toggle">▶</span>').prependTo(node.domElement!);
+        }
+        $childrenContainer = $('<div class="node-children"></div>').appendTo(node.domElement!);
+        initSortable($childrenContainer[0]);
     }
+    domObjectForNode(childNode).appendTo($childrenContainer);
 }
 
 // Generates a DOM element for a given node in the world tree
@@ -807,12 +829,61 @@ function domObjectForNode(node: WorldNode): JQuery {
 
     if (hasChildren) {
         $('<button class="button-generate-children">+ Generate Children</button>').appendTo($domElement);
-        $('<div class="node-children"></div>').appendTo($domElement);
+        const $childrenContainer = $('<div class="node-children"></div>').appendTo($domElement);
+        initSortable($childrenContainer[0]);
     }
 
     $domElement.data('node', node);
     node.domElement = $domElement;
     return $domElement;
+}
+
+/**
+ * Initializes SortableJS on a .node-children container to enable drag-and-drop
+ * reordering and reparenting of nodes.
+ */
+function initSortable(el: HTMLElement): void {
+    Sortable.create(el, {
+        group: 'world-tree',
+        animation: 150,
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
+        handle: '.node-label',
+        draggable: '> .node',
+        ghostClass: 'node-ghost',
+        chosenClass: 'node-chosen',
+        dragClass: 'node-drag',
+        onEnd(evt) {
+            const movedEl = evt.item;
+            const movedNode: WorldNode = $(movedEl).data('node');
+            if (!movedNode) return;
+
+            const oldParentEl = evt.from;
+            const newParentEl = evt.to;
+            const oldParentNode: WorldNode = $(oldParentEl).closest('.node').data('node');
+            const newParentNode: WorldNode = $(newParentEl).closest('.node').data('node');
+
+            if (!oldParentNode || !newParentNode) return;
+
+            // Remove from old parent's children array
+            const oldIndex = oldParentNode.children!.indexOf(movedNode);
+            if (oldIndex > -1) {
+                oldParentNode.children!.splice(oldIndex, 1);
+            }
+
+            // Insert into new parent's children array at the correct position
+            if (!newParentNode.children) {
+                newParentNode.children = [];
+            }
+            const newIndex = evt.newIndex ?? newParentNode.children.length;
+            newParentNode.children.splice(newIndex, 0, movedNode);
+
+            // Update parent reference
+            movedNode.parent = newParentNode;
+
+            markUnsaved();
+        }
+    });
 }
 
 /* Node Generation End */
