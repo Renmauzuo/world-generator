@@ -7,6 +7,7 @@ import {
     planarClusterNameGenerator,
     planarNameGenerator,
     materialPlaneNameGenerator,
+    planetNameGenerator,
     deityNameGenerator,
     avatarNameGenerator
 } from '../../nameGenerators';
@@ -56,6 +57,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     // Planar layers and demiplanes are sort of halfway between continent and world
     planet: {
         typeName: "Planet",
+        nameGenerator: planetNameGenerator,
         categories: ["geography"],
         children: [
             { type: "ocean", min: 1, max: 4 },

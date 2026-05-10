@@ -149,6 +149,50 @@ export function materialPlaneNameGenerator(_node: WorldNode): string {
     return "The " + randFromArray(["Prime", "Lost", "Unknown", "Forgotten", "Major", "Minor", "Mortal"]) + " Material Plane";
 }
 
+/**
+ * Generates a name for a planet. Two styles:
+ * 1. Fantasy proper name from syllable pools (70%) — e.g. "Norrath", "Toril", "Athas"
+ * 2. Descriptive phrase (30%) — e.g. "The Forgotten World", "The Shattered Sphere"
+ */
+export function planetNameGenerator(_node: WorldNode): string {
+    if (Math.random() < 0.3) {
+        // Descriptive phrase
+        const adjectives = [
+            'Forgotten', 'Lost', 'Shattered', 'Sundered', 'Verdant', 'Dying',
+            'Eternal', 'Hollow', 'Broken', 'Twilight', 'Crimson', 'Silent',
+            'Wandering', 'Frozen', 'Burning', 'Hidden', 'Ancient', 'Newborn'
+        ];
+        const nouns = [
+            'World', 'Sphere', 'Orb', 'Globe', 'Star', 'Cradle', 'Jewel',
+            'Stone', 'Garden', 'Tomb', 'Haven', 'Refuge', 'Crucible'
+        ];
+        return 'The ' + randFromArray(adjectives) + ' ' + randFromArray(nouns);
+    }
+
+    // Fantasy proper name — syllable pools inspired by iconic RPG world names
+    const starts = [
+        'Ab', 'Ath', 'Cer', 'Dar', 'Eb', 'Fae', 'Gor', 'Hy', 'Ir',
+        'Kal', 'Lor', 'Myr', 'Nor', 'Ol', 'Pel', 'Rav', 'Sol', 'Tar',
+        'Ul', 'Val', 'Xen', 'Zan', 'Tor', 'Kry', 'Ae'
+    ];
+    const mids = [
+        'an', 'ar', 'el', 'en', 'er', 'ia', 'il', 'in', 'ir', 'on',
+        'or', 'os', 'ra', 'ri', 'ro', 'un', 'al', 'eth', 'ath'
+    ];
+    const ends = [
+        'a', 'as', 'ia', 'is', 'on', 'or', 'os', 'th', 'un', 'us',
+        'il', 'al', 'ath', 'heim', 'rin', 'ion', 'ys', 'ax', 'ell'
+    ];
+
+    let name = randFromArray(starts);
+    const midCount = rand(0, 1);
+    for (let i = 0; i < midCount; i++) {
+        name += randFromArray(mids);
+    }
+    name += randFromArray(ends);
+    return name;
+}
+
 export function forestNameGenerator(node: WorldNode): string {
     const temperature: string = node.attributes?.temperature ?? '';
     const prefixes = ['Green', 'Shadow', 'Whisper', 'Silver', 'Iron', 'Moss', 'Thorn', 'Amber', 'Dusk', 'Dawn'];
