@@ -488,7 +488,7 @@ function showInfoForNode(node: WorldNode): void {
 
                 // Gather options
                 const deities = getRegisteredNodes('greaterDeity', 'lesserDeity', 'demigod');
-                const domainNames = Object.values(deityDomains).map(d => d.name);
+                const domainNames = Object.values(deityDomains).map(d => d.name).sort();
                 const dedications = ['Lawful Good', 'Neutral Good', 'Chaotic Good', 'Law and Order', 'the Balance', 'Freedom', 'the Greater Good', 'the Natural Order'];
 
                 // Check if current value matches any known option
