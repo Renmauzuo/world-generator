@@ -116,6 +116,126 @@ const faithActionable: HookTemplate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Geographic neighbor rumors — reference a named region elsewhere on the same
+// landmass, discovered by walking the tree. Keyed by the neighbor's biome tag.
+// The {place} placeholder is replaced with the neighbor region's name.
+// ---------------------------------------------------------------------------
+
+type NeighborTemplate = (place: string) => string;
+
+const neighborRumorsByTag: Record<string, NeighborTemplate[]> = {
+    forest: [
+        (p) => `Says strange creatures have been seen prowling ${p}.`,
+        (p) => `Heard that travelers have gone missing in ${p}.`,
+    ],
+    water: [
+        (p) => `Talks of ships vanishing in the waters off ${p}.`,
+        (p) => `Claims something surfaced near ${p} and hasn't been seen since.`,
+    ],
+    mountain: [
+        (p) => `Warns that the passes through ${p} have grown dangerous.`,
+        (p) => `Speaks of something awoken deep beneath ${p}.`,
+    ],
+    plains: [
+        (p) => `Mentions raiders sweeping across ${p}.`,
+        (p) => `Says herds have been slaughtered out on ${p}.`,
+    ],
+    desert: [
+        (p) => `Speaks of ruins uncovered by the shifting sands of ${p}.`,
+        (p) => `Warns that a caravan was lost crossing ${p}.`,
+    ],
+    swamp: [
+        (p) => `Whispers that lights lure the unwary deep into ${p}.`,
+        (p) => `Says the dead don't rest in ${p}.`,
+    ],
+};
+
+/** Generic neighbor rumor for regions without a tag-specific pool. */
+const genericNeighborRumors: NeighborTemplate[] = [
+    (p) => `Heard troubling news out of ${p} of late.`,
+    (p) => `Says folk have been leaving ${p} and won't say why.`,
+];
+
+/**
+ * Walks up to the nearest landmass-scale ancestor (continent/ocean), then walks
+ * back down collecting named `region`-tagged nodes that are NOT on the NPC's own
+ * ancestor path (so the NPC references a *different* region than its own).
+ */
+function findNeighborRegions(
+    node: WorldNode,
+    typeMap: Record<string, ObjectTypeTemplate>
+): WorldNode[] {
+    // Build the set of the NPC's own ancestors (identity, so we can exclude them).
+    const ownAncestors = new Set<WorldNode>();
+    let cursor: WorldNode | undefined = node;
+    while (cursor) {
+        ownAncestors.add(cursor);
+        cursor = cursor.parent;
+    }
+
+    // Find the scope: nearest ancestor tagged 'continent', else the topmost
+    // geographic ancestor we can reach.
+    let scope: WorldNode | undefined;
+    cursor = node.parent;
+    let highestGeographic: WorldNode | undefined;
+    while (cursor) {
+        const tags = typeMap[cursor.type]?.tags;
+        if (tags) {
+            if (tags.includes('continent')) {
+                scope = cursor;
+                break;
+            }
+            if (tags.includes('region')) {
+                highestGeographic = cursor;
+            }
+        }
+        cursor = cursor.parent;
+    }
+    if (!scope) scope = highestGeographic;
+    if (!scope) return [];
+
+    // Walk down from the scope collecting named region nodes not on our own path.
+    const neighbors: WorldNode[] = [];
+    const stack: WorldNode[] = [scope];
+    while (stack.length > 0) {
+        const current = stack.pop()!;
+        const tags = typeMap[current.type]?.tags;
+        if (tags?.includes('region') && current.name && !ownAncestors.has(current)) {
+            neighbors.push(current);
+        }
+        if (current.children) {
+            for (const child of current.children) stack.push(child);
+        }
+    }
+    return neighbors;
+}
+
+/**
+ * Attempts to build a rumor referencing a named neighboring region on the same
+ * landmass. Returns null if no suitable neighbor exists.
+ */
+function tryNeighborRumor(
+    node: WorldNode,
+    typeMap: Record<string, ObjectTypeTemplate>
+): string | null {
+    const neighbors = findNeighborRegions(node, typeMap);
+    if (neighbors.length === 0) return null;
+
+    const target = randFromArray(neighbors);
+    const targetTags = typeMap[target.type]?.tags ?? [];
+
+    // Pick a tag-specific pool if the neighbor's biome has one, else generic.
+    let pool = genericNeighborRumors;
+    for (const tag of targetTags) {
+        if (neighborRumorsByTag[tag]) {
+            pool = neighborRumorsByTag[tag];
+            break;
+        }
+    }
+    return randFromArray(pool)(target.name!);
+}
+
+// ---------------------------------------------------------------------------
 // Profile building
 // ---------------------------------------------------------------------------
 
@@ -258,6 +378,13 @@ export function generateAdventureHook(node: WorldNode, typeMap: Record<string, O
         }
         const pool = randFromArray(profile.actionablePools);
         return randFromArray(pool)();
+    }
+
+    // Rumor branch. ~40% of the time, try a geographic-neighbor rumor that names a
+    // real region elsewhere on the same landmass; fall back to local rumor pools.
+    if (rand(1, 10) <= 4) {
+        const neighbor = tryNeighborRumor(node, typeMap);
+        if (neighbor) return neighbor;
     }
 
     const pool = randFromArray(profile.rumorPools);
