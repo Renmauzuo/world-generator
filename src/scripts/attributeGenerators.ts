@@ -1,10 +1,21 @@
-import type { WorldNode } from './types';
+import type { ObjectTypeTemplate, WorldNode } from './types';
 import { populationDensity, alignmentList, elementList, temperatureList, races } from './data/constants';
 import { weightedRand, rand, collectAncestorTags } from './helpers';
 import { getRegisteredNodes } from './nodeRegistry';
 import { averageStats, races as toolkit5eRaces } from '@toolkit5e/base';
 import { monsterList } from '@toolkit5e/monster-scaler';
 import { generateNpcDescription } from './npcNameGenerators';
+import { generateAdventureHook } from './adventureHookGenerators';
+
+/**
+ * Forward reference to the merged objectTypes map, wired up by objectTypes.ts after merge.
+ * Lets setup functions here (e.g. npcSetup) read template metadata and ancestor tags
+ * without importing objectTypes directly (which would create a circular dependency).
+ */
+let objectTypesRef: Record<string, ObjectTypeTemplate> = {};
+export function setObjectTypesRef(ref: Record<string, ObjectTypeTemplate>): void {
+    objectTypesRef = ref;
+}
 
 /** All valid Challenge Rating values, derived from the averageStats table, sorted numerically. */
 const challengeRatingList: number[] = Object.keys(averageStats).map(Number).sort((a, b) => a - b);
@@ -100,7 +111,8 @@ export const attributeEditors: Record<string, any> = {
     gender: ['Male', 'Female', 'Non-binary'],
     race: Object.keys(races),
     settlementType: ['Standard', 'Coastal', 'Underground'],
-    description: 'textarea'
+    description: 'textarea',
+    adventureHook: 'textarea'
 };
 
 /** Human-readable labels for attribute keys. */
@@ -120,6 +132,7 @@ export const labels: Record<string, string> = {
     settlementType: "Settlement Type",
     worship: "Worships",
     species: "Species",
+    adventureHook: "Adventure Hook",
     // Race names for demographics display
     dragonborn: "Dragonborn",
     dwarf: "Dwarf",
@@ -835,6 +848,10 @@ export function npcSetup(node: WorldNode): void {
 
     // Select alignment based on worship and race
     node.attributes!.alignment = selectNpcAlignment(node.attributes!.worship, node.attributes!.race, deities);
+
+    // Generate an adventure hook. Runs last so it can read the resolved
+    // alignment/worship and the ancestor chain for context-aware phrasing.
+    node.attributes!.adventureHook = generateAdventureHook(node, objectTypesRef);
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { ObjectTypeTemplate } from '../types';
-import { categoryAttributes } from '../attributeGenerators';
+import { categoryAttributes, setObjectTypesRef as setAttributeGeneratorsRef } from '../attributeGenerators';
 import { planarTypes, setObjectTypesRef as setPlanarRef } from './objectTypes/planarTypes';
 import { geographyTypes } from './objectTypes/geographyTypes';
 import { settlementObjTypes, setObjectTypesRef as setSettlementRef } from './objectTypes/settlementTypes';
@@ -16,6 +16,7 @@ export const objectTypes: Record<string, ObjectTypeTemplate> = {
 setPlanarRef(objectTypes);
 setSettlementRef(objectTypes);
 setCreatureRef(objectTypes);
+setAttributeGeneratorsRef(objectTypes);
 
 // Mix in category attributes for all types that declare categories.
 // Type-specific attributes take precedence — category attributes are only added if not already defined.

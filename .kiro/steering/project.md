@@ -38,6 +38,7 @@ src/scripts/
 ├── nameGenerators.ts         # Location/creature name generators + queuedName state
 ├── titleGenerator.ts         # Unified title generator — layered pool builder used by all name generators
 ├── npcNameGenerators.ts      # NPC name generators — master dispatcher + 9 racial generators
+├── adventureHookGenerators.ts # NPC adventure hook generator — layered rumor/actionable pools + registry-backed world-aware hooks
 ├── attributeGenerators.ts    # Attribute value generators, categoryAttributes, attributeEditors, labels, deity/avatar/NPC setup
 ├── nodeRegistry.ts           # Global node registry for cross-tree references (deities, etc.)
 ├── scripts.ts                # Entry point — DOM logic, event handlers, save/load
@@ -127,7 +128,7 @@ A global `Map<string, WorldNode[]>` in `nodeRegistry.ts` that tracks nodes by ty
 - Cleared and rebuilt from the tree when loading/importing a world from JSON
 - Cleared when generating a new world
 
-Currently registered types: `greaterDeity`, `lesserDeity`, `demigod`. Used by avatars to reference a source deity, and will be used by NPCs for patron deity selection.
+Currently registered types: `greaterDeity`, `lesserDeity`, `demigod` (deity references), and `npcBanditCaptain`, `undeadCrypt`, `demonicFortress` (adventure hook quest targets). Used by avatars to reference a source deity, by NPCs for patron deity selection, and by the adventure hook generator to reference real quest targets by name.
 
 To avoid circular imports, `nodeRegistry.ts` does not import `objectTypes.ts` — the `registered` check happens in `scripts.ts` before calling `registerNode`. The `registerTree` function accepts a `Set<string>` of registered type keys for the load/import path.
 
@@ -270,6 +271,16 @@ Racial alignment biases are defined on `RaceData` in `constants.ts`. Most races 
 
 Alignment is passed to the statblock modal (`statblock.alignment`) and appended as `&alignment=` on the monster scaler link.
 
+**Adventure Hooks** (`adventureHookGenerators.ts`): every NPC gets an `adventureHook` attribute — free text (editable `'textarea'`) pointing players toward adventure. Hooks span a spectrum from passive rumors ("heard something lurks in the woods") to actionable requests ("wants someone to hunt down Grix the Cleaver"). Generated in `npcSetup` (runs last, after alignment/worship resolve).
+
+The generator mirrors the layered-pool approach of `generateTitle`: `buildHookProfile(node, typeMap)` inspects signals the NPC already carries — base `creature` (martial vs. civilian), `typeName` (fine role), parent building type, `alignment`, `worship`, and ancestor tags — and accumulates (a) an `actionableChance` score and (b) a set of applicable pools. It then rolls rumor-vs-actionable and picks from the assembled pools. No per-type maintenance map: new NPC types inherit behavior from their base creature, tags, worship, and parent building.
+
+- **Rumor pools**: `genericRumors` (always) + tag-flavored pools keyed by ancestor tag (`forest`, `water`, `mountain`, `desert`, `swamp`, `underground`, `undead`, `cold`, `fire`).
+- **Actionable pools**: `selfContainedActionable` (always — lost heirloom, escort), `combatActionable` (martial creatures), `shadyActionable` (criminal parent or evil alignment), `faithActionable` (has worship).
+- **Actionable weighting**: baseline 15%; +45 for martial base creatures, +15 for leadership roles (bandit captain/noble/knight), +15 for social/gossip parents (tavern, court, shop), +10 for criminal/evil context. Clamped at 85%.
+
+**World-aware hooks**: when an actionable hook fires, ~50% of the time it tries `tryWorldAwareHook()`, which queries the registry for a real quest target (`npcBanditCaptain`, `undeadCrypt`, `demonicFortress`) and **bakes the target's name into the hook string as a snapshot** — no live node reference to serialize. This survives the target being moved, renamed, or deleted (the NPC simply "heard" about it). If no candidate exists in the registry yet, it falls back to a self-contained actionable hook or rumor. This is the agreed compromise: reference real nodes when they exist, degrade gracefully when they don't.
+
 **Name generation** (`npcNameGenerator` in `npcNameGenerators.ts`): master dispatcher that reads race and gender, delegates to one of 9 racial generators. Each generator has gendered first name pools and family/clan name pools. Non-binary NPCs draw from either gendered pool randomly. Half-elves draw from both human and elven pools.
 
 Current NPC types:
@@ -312,6 +323,7 @@ Current NPC types:
 - **Lineage**: dropdown of lineages for the selected race, rebuilds when race changes. Hidden for races without lineages.
 - **Gender**: dropdown (Male, Female, Non-binary)
 - **Settlement Type**: dropdown (Standard, Coastal, Underground)
+- **Description / Adventure Hook**: multi-line `<textarea>` (registered as `'textarea'` in `attributeEditors`)
 - Generic select options use `labels` map for display text when available
 
 ### Legendary Creatures
@@ -388,6 +400,7 @@ Using one `monsterList` entry at different CRs or with different display names:
 - The tree UI uses custom `div.node` markup with separate click targets: `.node-toggle` for expand/collapse, `.node-label` for selection. Not `<details>`/`<summary>`.
 - `attributeEditors` overrides the default editor for specific attributes (e.g. CR → dropdown, race → dropdown, gender → dropdown). The generic select renderer uses the `labels` map for display text.
 - `npcSetup` skips race/lineage selection if already set on the node — allows pre-set race for specific NPC types (e.g. dragonborn servants in dragon lairs via `dragonbornNpcSetup`).
+- `attributeGenerators.ts` now has its own `objectTypesRef` forward reference (via `setObjectTypesRef`, wired in `objectTypes.ts` alongside the partial-file refs). This lets setup functions there (e.g. `npcSetup`) read template metadata and ancestor tags — needed by the adventure hook generator — without importing `objectTypes` and creating a circular dependency.
 - `markUnsaved()` replaces direct `saved = false` — debounces auto-save to localStorage so rapid edits don't thrash storage.
 - The info panel change handler skips elements without an `id` or with class `add-child-select` to avoid triggering saves on UI-only controls.
 - `recursivePostParseProcess` cleans up stale `"undefined"` attribute keys from older saves during tree load/import.

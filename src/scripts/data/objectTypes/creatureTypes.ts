@@ -764,6 +764,7 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Bandit Captain",
         nameGenerator: npcNameGenerator,
         creature: "banditCaptain",
+        registered: true,
         customSetup: npcSetup,
         attributes: { challengeRating: { min: 2, max: 4 }, alignment: '', lineage: '' }
     },
@@ -1966,6 +1967,7 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     /*** Undead Settlements Begin ***/
     undeadCrypt: {
         typeName: "Ancient Crypt",
+        registered: true,
         children: [
             { type: 'skeletonCrypt', min: 2, max: 4 },
             { type: 'zombieHorde', min: 1, max: 3 },
@@ -1990,6 +1992,7 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     /*** Demonic Settlements Begin ***/
     demonicFortress: {
         typeName: "Demonic Fortress",
+        registered: true,
         children: [
             { type: 'demonHorde', min: 2, max: 4 },
             { type: 'demonWarband', min: 1, max: 3 },
