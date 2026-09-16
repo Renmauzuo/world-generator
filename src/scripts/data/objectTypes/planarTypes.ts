@@ -57,6 +57,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     // Planar layers and demiplanes are sort of halfway between continent and world
     planet: {
         typeName: "Planet",
+        tags: ['continent'],
         nameGenerator: planetNameGenerator,
         categories: ["geography"],
         children: [
@@ -232,6 +233,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
         children: [
             { type: 'dryadGrove', min: 0, max: 2 },
             { type: 'awakenedTreeCopse', min: 0, max: 2 },
+            { type: 'feyVillage', weightedRange: { 0: 60, 1: 40 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -241,6 +243,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
         children: [
             { type: 'naiadSpring', min: 0, max: 1 },
             { type: 'dryadGrove', min: 0, max: 1 },
+            { type: 'feyVillage', weightedRange: { 0: 70, 1: 30 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -256,6 +259,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'wraithSolitary', min: 0, max: 1 },
             { type: 'cryptLord', min: 0, max: 1 },
             { type: 'dreadWraith', min: 0, max: 1 },
+            { type: 'undeadCrypt', weightedRange: { 0: 60, 1: 40 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -267,6 +271,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'skeletonCrypt', min: 0, max: 1 },
             { type: 'zombieHorde', min: 0, max: 1 },
             { type: 'specterSolitary', min: 0, max: 2 },
+            { type: 'undeadCrypt', weightedRange: { 0: 75, 1: 25 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -287,6 +292,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
         children: [
             { type: 'dryadGrove', min: 0, max: 1 },
             { type: 'awakenedTreeCopse', min: 0, max: 1 },
+            { type: 'feyVillage', weightedRange: { 0: 60, 1: 40 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -298,6 +304,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'devilLegion', min: 0, max: 1 },
             { type: 'erinyesSolitary', min: 0, max: 1 },
             { type: 'pitFiendSolitary', min: 0, max: 1 },
+            { type: 'devilBastion', weightedRange: { 0: 70, 1: 30 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -309,6 +316,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'demonWarband', min: 0, max: 2 },
             { type: 'marilithSolitary', min: 0, max: 1 },
             { type: 'balorSolitary', min: 0, max: 1 },
+            { type: 'demonicFortress', weightedRange: { 0: 70, 1: 30 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },
@@ -318,6 +326,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
         children: [
             { type: 'angelSolitary', min: 1, max: 3 },
             { type: 'solarAngel', min: 0, max: 1 },
+            { type: 'angelicCitadel', weightedRange: { 0: 70, 1: 30 } },
             { type: 'avatar', min: 0, max: 1 }
         ]
     },

@@ -653,3 +653,42 @@ export function shopNameGenerator(node: WorldNode): string {
     }
     return 'The ' + randFromArray(adjectives) + ' ' + trade;
 }
+
+/**
+ * Generates a name for a fey village.
+ * Two strategies:
+ * 1. Derived from parent name (60%) — "[Parent Name] Village", "[Parent Name] Glade"
+ * 2. Original compound name (40%) — nature-themed like "Thornhaven", "Moonlit Hollow"
+ */
+export function feyVillageNameGenerator(node: WorldNode): string {
+    const parentName = node.parent?.name;
+
+    // If the parent has a name, often derive from it
+    if (parentName && Math.random() < 0.6) {
+        // Strip "The " prefix for cleaner compound names
+        const cleanName = parentName.replace(/^The\s+/i, '');
+        const suffixes = ['Village', 'Glade', 'Hollow', 'Haven', 'Court', 'Circle'];
+        return cleanName + ' ' + randFromArray(suffixes);
+    }
+
+    // Original fey-themed compound name
+    const prefixes = [
+        'Thorn', 'Moon', 'Star', 'Dew', 'Mist', 'Fern', 'Briar', 'Willow',
+        'Silver', 'Crystal', 'Twilight', 'Shimmer', 'Gossamer', 'Petal',
+        'Moss', 'Amber', 'Honey', 'Blossom', 'Foxglove', 'Elder'
+    ];
+    const suffixes = [
+        'haven', 'hollow', 'glade', 'dell', 'glen', 'vale', 'bower',
+        'ring', 'pool', 'thicket', 'meadow', 'copse', 'crossing'
+    ];
+
+    return randFromArray(prefixes) + randFromArray(suffixes);
+}
+
+/**
+ * Generates a name for an Archfey — a powerful fey lord or lady.
+ * Uses the fey name generator with guaranteed title.
+ */
+export function archfeyNameGenerator(node: WorldNode): string {
+    return feyNameGenerator(node);
+}

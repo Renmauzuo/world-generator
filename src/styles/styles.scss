@@ -56,6 +56,28 @@ details, #generation-container p {
     display: none;
 }
 
+// GM-only nodes: subtle visual marker in the tree. Applied to the node's own label
+// only (child rows carry their own flag), via the direct-child selector.
+.gm-only-node > .node-label {
+    color: #8a2be2;
+    font-style: italic;
+
+    &::after {
+        content: " 🔒 GM";
+        font-size: 0.75em;
+        font-style: normal;
+        color: #8a2be2;
+        opacity: 0.8;
+    }
+}
+
+.gm-only-label {
+    display: inline-block;
+    margin: 4px 0;
+    cursor: pointer;
+    user-select: none;
+}
+
 .button-generate-children {
     margin-left: 8px;
     font-size: 0.8em;

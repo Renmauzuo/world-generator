@@ -64,6 +64,13 @@ export interface ObjectTypeTemplate {
    * context-aware decisions (e.g. avatar deity selection based on biome).
    */
   tags?: string[];
+  /**
+   * Speciation identity for beast types. All node types representing the same animal concept
+   * share a speciationId (e.g. 'mammoth' for mammothHerd, mammothBull, mammothCalf).
+   * Used as the key in the species registry so related types share a species pool.
+   * Types without this field don't participate in speciation.
+   */
+  speciationId?: string;
 }
 
 export interface WorldNode {
@@ -73,6 +80,12 @@ export interface WorldNode {
   children?: WorldNode[];
   attributes?: Record<string, any>;
   domElement?: JQuery;
+  /**
+   * When true, this node (and its subtree) is GM-only content. It can be excluded
+   * from player-facing exports via the "Export (Players)" option. Purely a sharing/visibility
+   * flag — not an attribute, not used by the generator.
+   */
+  gmOnly?: boolean;
 }
 
 export interface RaceData {

@@ -22,6 +22,7 @@ html(lang="en")
             button#button-import-root Import
             br
             button#button-export-root Export
+            button#button-export-root-players Export (Players)
             br
             button#button-save Save
         #generation-container.container
@@ -30,11 +31,16 @@ html(lang="en")
             h2
             label(for="name") Name:
             input(type="text" id="name")
+            br
+            label.gm-only-label(for="gm-only")
+                input(type="checkbox" id="gm-only")
+                |  GM Only
 
             #fields
             button#button-import-selected Import Child
             br
             button#button-export-selected Export
+            button#button-export-selected-players Export (Players)
             br
             button#button-delete-selected Delete
 

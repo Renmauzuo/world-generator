@@ -156,6 +156,7 @@ Presets also serve as a **litmus test for the generator's expressiveness**. If a
 - ~~**Delete node button**~~ — DONE. Removes selected node and its subtree from the tree.
 - ~~**Add Child UI**~~ — DONE. Dropdown with valid child types for the selected node, plus an "all types" dropdown for manual overrides.
 - **Split creatureTypes.ts** — at ~1450 lines it's the largest partial file. Could be split further into NPCs (base NPC types), groups/encounters (wolf packs, demon hordes, etc.), and individual creatures (wolves, bears, dragons, etc.).
+- **Creature settlement expansion** — when adding new creature types to the monster scaler, consider whether they should be added to existing creature settlements: `feyVillage` (fey), `undeadCrypt` (undead), `demonicFortress` (demons), `angelicCitadel` (celestials), `devilBastion` (devils). Also consider whether new creature types warrant their own settlement pattern (e.g. a lich's lair for a new lich template, an elemental nexus for new elementals, a giant stronghold, etc.).
 - **Racial higher-level spells** — elf and tiefling lineages grant spells at levels 3 and 5. Need a way to determine NPC "level" from CR to decide which spells are available.
 - **Worship weighting** — deity selection for temples/NPCs could be weighted by geography (sea god near coast) and racial demographics (nature god in elven areas). Core system works, weighting is a refinement.
 - **Lineage-aware demographics** — lineage selection is currently equal-weight random. Could be weighted by biome tags (more drow underground, more wood elves in forests).
@@ -232,6 +233,16 @@ Undead: shadow haunts, skeleton crypts, zombie hordes, ghoul packs.
 Fiends: demon hordes, demon warbands, devil patrols, devil legions.
 
 Humanoids: goblin warbands (with runt/veteran/chief hierarchy), frost giant patrols, ogre gangs.
+
+### Creature Settlements
+Large, diverse gatherings of a creature type with internal structure and rare leadership nodes:
+- **Fey Village** (`feyVillage`) — spawns in forests, forgotten biomes, positive energy planes. Contains dryad groves, sprite nests, satyr circles, centaur patrols, blink dog packs, fey huts, and rarely an Archfey's Court with a legendary CR 15–22 archfey (random sentient fey base).
+- **Ancient Crypt** (`undeadCrypt`) — spawns in swamps, hills, necropolis, bone waste. Contains skeleton crypts, zombie hordes, shadow haunts, ghoul packs, wights, wraiths, specters, and rarely a Crypt Lord's Chamber.
+- **Demonic Fortress** (`demonicFortress`) — spawns in abyssal fortresses. Contains demon hordes, warbands, mariliths, balors, and rarely a Demon Lord's Throne with a balor + marilith retinue.
+- **Angelic Citadel** (`angelicCitadel`) — spawns in celestial spires. Contains angel patrols, solars, and rarely a Solar's Court.
+- **Devil Bastion** (`devilBastion`) — spawns in infernal citadels. Contains devil patrols, legions, erinyes, ice devils, pit fiends, and rarely a Pit Fiend's Court with a full infernal hierarchy.
+
+When adding new creature types, consider whether they belong in an existing creature settlement or warrant a new one.
 
 ### NPCs
 NPC types use `customSetup` (`npcSetup`) to select race, gender, worship, and alignment at generation time.

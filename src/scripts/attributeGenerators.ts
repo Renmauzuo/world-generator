@@ -119,6 +119,7 @@ export const labels: Record<string, string> = {
     gender: "Gender",
     settlementType: "Settlement Type",
     worship: "Worships",
+    species: "Species",
     // Race names for demographics display
     dragonborn: "Dragonborn",
     dwarf: "Dwarf",
@@ -955,4 +956,410 @@ export function environmentalResistanceSetup(node: WorldNode): void {
     } else if (temp === 'Warm') {
         node.attributes!.extraResistances = 'fire';
     }
+}
+
+/**
+ * Assigns a species to a beast group node. Species are persistent entities stored on
+ * ancestor nodes (region, continent, or planet) so they can be reused by other groups
+ * of the same creature type in the same area.
+ *
+ * Logic:
+ * 1. Walk the parent chain looking for existing species of the same creature type
+ * 2. If found in the region: 70% reuse, 30% generate new
+ * 3. If found only at continent/planet level: 50% reuse, 50% generate new
+ * 4. If none exist: generate new and store on an appropriate ancestor
+ *
+ * Species are stored as `speciesRegistry` on ancestor nodes — an array of
+ * `{ name, creature }` objects. This persists through save/load automatically.
+ *
+ * @param node - The beast group node
+ * @param objectTypes - The objectTypes map for looking up type templates
+ */
+export function speciesSetup(node: WorldNode, objectTypes: Record<string, any>): void {
+    // 30% chance of no species — this is just a common, unremarkable population
+    if (Math.random() < 0.3) return;
+
+    // Determine the creature base type for this group
+    const creatureType = getGroupCreatureType(node, objectTypes);
+    if (!creatureType) return;
+
+    // Look for existing species in the ancestor chain
+    const existing = findExistingSpecies(node, creatureType, objectTypes);
+
+    if (existing.regionSpecies.length > 0 && Math.random() < 0.7) {
+        // Reuse a species from the same region
+        const picked = existing.regionSpecies[Math.floor(Math.random() * existing.regionSpecies.length)];
+        node.attributes!.species = picked.name;
+        return;
+    }
+
+    if (existing.continentSpecies.length > 0 && Math.random() < 0.5) {
+        // Reuse a species from the continent/planet
+        const picked = existing.continentSpecies[Math.floor(Math.random() * existing.continentSpecies.length)];
+        node.attributes!.species = picked.name;
+        return;
+    }
+
+    // Generate a new species
+    const context = getGeographicContext(node, objectTypes);
+    const speciesName = generateSpeciesName(context);
+    if (!speciesName) return;
+
+    node.attributes!.species = speciesName;
+
+    // Store the new species on an appropriate ancestor for future reuse
+    registerSpeciesOnAncestor(node, creatureType, speciesName, objectTypes);
+}
+
+/** A species entry stored on an ancestor node's speciesRegistry. */
+interface SpeciesEntry {
+    name: string;
+    creature: string;
+}
+
+/**
+ * Determines the speciation key for a beast group node.
+ * Uses the `speciationId` from the node's type template. All node types representing
+ * the same animal concept share a speciationId (e.g. 'mammoth' for mammothHerd,
+ * mammothBull, mammothCalf), so they share a species pool.
+ * Returns null if the type has no speciationId (shouldn't happen for types with speciesSetup).
+ */
+function getGroupCreatureType(node: WorldNode, objectTypes: Record<string, any>): string | null {
+    return objectTypes[node.type]?.speciationId ?? null;
+}
+
+/**
+ * Walks the parent chain looking for existing species of the given creature type.
+ * Returns species found at region level and continent level separately.
+ */
+function findExistingSpecies(node: WorldNode, creatureType: string, objectTypes: Record<string, any>): { regionSpecies: SpeciesEntry[], continentSpecies: SpeciesEntry[] } {
+    const result = { regionSpecies: [] as SpeciesEntry[], continentSpecies: [] as SpeciesEntry[] };
+
+    let current: WorldNode | undefined = node.parent;
+    while (current) {
+        const template = objectTypes[current.type];
+        const typeTags: string[] | undefined = template?.tags;
+        const registry: SpeciesEntry[] | undefined = current.attributes?.speciesRegistry;
+
+        if (registry) {
+            const matching = registry.filter(s => s.creature === creatureType);
+            if (matching.length > 0) {
+                if (typeTags?.includes('region')) {
+                    result.regionSpecies.push(...matching);
+                } else if (typeTags?.includes('continent')) {
+                    result.continentSpecies.push(...matching);
+                }
+            }
+        }
+
+        current = current.parent;
+    }
+
+    return result;
+}
+
+/**
+ * Stores a new species on an appropriate ancestor node.
+ * Default scope is the nearest region; small chance of continent or planet scope.
+ */
+function registerSpeciesOnAncestor(node: WorldNode, creatureType: string, speciesName: string, objectTypes: Record<string, any>): void {
+    // Decide scope: 75% region, 20% continent, 5% planet
+    const scopeRoll = Math.random();
+    const targetTag = scopeRoll < 0.75 ? 'region' : 'continent';
+
+    let current: WorldNode | undefined = node.parent;
+    let fallback: WorldNode | undefined;
+
+    while (current) {
+        const template = objectTypes[current.type];
+        const typeTags: string[] | undefined = template?.tags;
+
+        if (typeTags?.includes(targetTag)) {
+            // Found the target scope — store here
+            if (!current.attributes) current.attributes = {};
+            if (!current.attributes.speciesRegistry) current.attributes.speciesRegistry = [];
+            current.attributes.speciesRegistry.push({ name: speciesName, creature: creatureType });
+            return;
+        }
+
+        // Track the highest-level ancestor with a continent tag as fallback
+        if (typeTags?.includes('continent')) {
+            fallback = current;
+        }
+
+        current = current.parent;
+    }
+
+    // If we didn't find the target scope, use the fallback (continent/planet)
+    if (fallback) {
+        if (!fallback.attributes) fallback.attributes = {};
+        if (!fallback.attributes.speciesRegistry) fallback.attributes.speciesRegistry = [];
+        fallback.attributes.speciesRegistry.push({ name: speciesName, creature: creatureType });
+    }
+}
+
+/**
+ * Generates a species name by examining the geographic context of the node.
+ * Looks for named ancestors at different levels of the hierarchy and derives
+ * a species modifier from them.
+ */
+function generateSpeciesName(context: GeographicContext): string | null {
+    // Choose a naming strategy
+    const roll = Math.random();
+
+    if (roll < 0.45 && context.regionName) {
+        // Geographic name derived from the nearest named region/biome
+        return deriveGeographicAdjective(context.regionName);
+    } else if (roll < 0.7 && context.continentName) {
+        // Geographic name derived from the continent
+        const adj = deriveGeographicAdjective(context.continentName);
+        // Sometimes add the biome type for specificity: "Torcan Forest"
+        if (Math.random() < 0.3 && context.biomeNoun) {
+            return adj + ' ' + context.biomeNoun;
+        }
+        return adj;
+    } else if (roll < 0.85) {
+        // Descriptive name based on biome characteristics
+        return generateDescriptiveSpecies(context);
+    } else {
+        // Compound: descriptive + geographic
+        const descriptive = generateDescriptiveSpecies(context);
+        if (context.regionName && Math.random() < 0.5) {
+            return deriveGeographicAdjective(context.regionName) + ' ' + descriptive;
+        }
+        if (context.continentName) {
+            return deriveGeographicAdjective(context.continentName) + ' ' + descriptive;
+        }
+        return descriptive;
+    }
+}
+
+interface GeographicContext {
+    continentName: string | null;
+    regionName: string | null;
+    biomeNoun: string | null;
+    temperature: string | null;
+    tags: Set<string>;
+}
+
+/**
+ * Walks the parent chain and extracts geographic context for species naming.
+ * Uses 'region' and 'continent' tags on type templates to identify hierarchy levels,
+ * so new region/continent types are automatically picked up without maintaining a list.
+ */
+function getGeographicContext(node: WorldNode, objectTypes: Record<string, any>): GeographicContext {
+    const context: GeographicContext = {
+        continentName: null,
+        regionName: null,
+        biomeNoun: null,
+        temperature: null,
+        tags: new Set()
+    };
+
+    let current: WorldNode | undefined = node.parent;
+    while (current) {
+        const template = objectTypes[current.type];
+        const typeTags: string[] | undefined = template?.tags;
+
+        // Collect tags
+        if (typeTags) {
+            for (const tag of typeTags) {
+                context.tags.add(tag);
+            }
+        }
+
+        // Grab temperature from the nearest ancestor that has it
+        if (!context.temperature && current.attributes?.temperature) {
+            context.temperature = current.attributes.temperature;
+        }
+
+        // Find the nearest named region (types tagged 'region')
+        if (!context.regionName && typeTags?.includes('region') && current.name) {
+            context.regionName = current.name;
+            // Derive a biome noun from the type's other tags
+            context.biomeNoun = getBiomeNounFromTags(typeTags);
+        }
+
+        // Find the nearest named continent/planet (types tagged 'continent')
+        if (!context.continentName && typeTags?.includes('continent') && current.name) {
+            context.continentName = current.name;
+        }
+
+        current = current.parent;
+    }
+
+    return context;
+}
+
+/**
+ * Derives a biome noun from a type's tags for compound species names.
+ * Maps biome tags to human-readable nouns (e.g. 'forest' → 'Forest', 'water' → 'Coastal').
+ */
+function getBiomeNounFromTags(tags: string[]): string | null {
+    // Check tags in priority order (more specific first)
+    const tagToNoun: Record<string, string> = {
+        forest: 'Forest',
+        plains: 'Plains',
+        mountain: 'Mountain',
+        hills: 'Hill',
+        swamp: 'Swamp',
+        desert: 'Desert',
+        water: 'Coastal',
+        cold: 'Tundra',
+        underground: 'Cave',
+    };
+    for (const tag of tags) {
+        if (tag !== 'region' && tagToNoun[tag]) {
+            return tagToNoun[tag];
+        }
+    }
+    return null;
+}
+
+/**
+ * Derives a geographic modifier from a place name for use in species names.
+ * 
+ * Two strategies:
+ * 1. **Bare modifier** — names that are compound English words (Greenwood, Frostpeak,
+ *    Shadowmire) or multi-word descriptive names (Silver Lake → Silver) work as-is.
+ *    "Greenwood Snake" sounds natural because the name already functions adjectivally.
+ * 2. **Suffixed demonym** — opaque proper nouns (Torca, Norrath, Athas) need a suffix
+ *    to sound like adjectives: Torcan, Norrathian, Athasian.
+ *
+ * The heuristic: if the name ends in a recognizable English noun component (wood, peak,
+ * vale, etc.), it's compound and works bare. Otherwise it gets suffixed.
+ */
+function deriveGeographicAdjective(placeName: string): string {
+    // Strip "The " prefix
+    let name = placeName.replace(/^The\s+/i, '');
+
+    // For multi-word descriptive names (e.g. "The Golden Plains"), extract the modifier
+    const words = name.split(' ');
+    if (words.length > 1) {
+        const lastWord = words[words.length - 1];
+        const biomeWords = new Set(['Plains', 'Forest', 'Mountains', 'Lake', 'River', 'Sea', 'Desert', 'Swamp', 'Hills', 'Tundra', 'Coast', 'Savanna', 'Peaks', 'Range', 'Steppe', 'Grasslands', 'Sands', 'Wastes', 'Barrens', 'Dunes', 'Fields', 'Prairie']);
+        if (biomeWords.has(lastWord)) {
+            // "Golden Plains" → use "Golden" as-is (it's already an adjective)
+            name = words.slice(0, -1).join(' ');
+            // If what remains is already adjectival, return it
+            if (name.match(/^[A-Z][a-z]+(ern|en|ous|ing|ed|al|ive)$/)) {
+                return name;
+            }
+        } else {
+            // "North Torca" → use "Torca"
+            name = lastWord;
+        }
+    }
+
+    // Check if the name is a compound English word that works as a bare modifier.
+    // These end in recognizable noun components from the name generators.
+    if (isCompoundName(name)) {
+        return name;
+    }
+
+    // Already looks like an adjective (ends in common adjective suffixes)
+    if (name.match(/(ern|en|ous|ing|ed|al|ive|an|ian)$/i)) {
+        return name;
+    }
+
+    // Opaque proper noun — apply suffixing rules to create a demonym
+    const lower = name.toLowerCase();
+    const lastChar = lower[lower.length - 1];
+    const vowels = 'aeiou';
+
+    // Ends in a vowel: append "n" (Torca → Torcan)
+    if (vowels.includes(lastChar)) {
+        // 'e' ending: drop the e and add "ian" (Shadowgrove → Shadowgrovian)
+        if (lastChar === 'e') {
+            return name.slice(0, -1) + 'ian';
+        }
+        return name + 'n';
+    }
+
+    // Ends in 's': just add "ian" (Athas → Athasian)
+    if (lastChar === 's') {
+        return name + 'ian';
+    }
+
+    // Ends in a consonant: append "an" or "ian"
+    // Short names (≤5 chars) get "ian", longer get "an"
+    if (name.length <= 5) {
+        return name + 'ian';
+    }
+    return name + 'an';
+}
+
+/**
+ * Determines if a name is a compound English word that works as a bare geographic modifier.
+ * Checks if the name ends in a recognizable noun component that the name generators use.
+ * e.g. "Greenwood", "Frostpeak", "Shadowmire", "Ironholm" → true
+ *      "Torca", "Norrath", "Eryslai" → false
+ */
+function isCompoundName(name: string): boolean {
+    const lower = name.toLowerCase();
+    // Common noun components used by the location name generators
+    const compoundSuffixes = [
+        // Forest generators
+        'wood', 'grove', 'weald', 'thicket', 'hollow',
+        // Mountain generators
+        'peak', 'horn', 'spire', 'crag', 'fang', 'crown', 'tooth',
+        // Swamp generators
+        'mire', 'fen', 'marsh', 'bog', 'moor',
+        // Water generators
+        'water', 'run', 'flow', 'brook', 'stream', 'creek',
+        // Settlement-style
+        'holm', 'burg', 'ford', 'vale', 'dale', 'fell', 'field', 'gate',
+        'haven', 'hold', 'keep', 'port', 'stead', 'ton', 'wick',
+        // General geography
+        'land', 'cliff', 'ridge', 'stone', 'rock', 'lake', 'mouth',
+    ];
+    return compoundSuffixes.some(suffix => lower.endsWith(suffix) && lower.length > suffix.length);
+}
+
+/**
+ * Generates a purely descriptive species modifier based on biome characteristics.
+ * These don't reference any specific place name.
+ */
+function generateDescriptiveSpecies(context: GeographicContext): string {
+    const pools: string[][] = [];
+
+    // Color-based descriptors
+    pools.push(['Brown', 'Grey', 'Tawny', 'Pale', 'Dark', 'Dusky', 'Russet']);
+
+    // Size-based descriptors
+    pools.push(['Greater', 'Lesser', 'Giant', 'Common', 'Dwarf']);
+
+    // Pattern-based descriptors
+    pools.push(['Spotted', 'Striped', 'Banded', 'Mottled', 'Crested']);
+
+    // Temperature-based
+    if (context.temperature === 'Cold' || context.tags.has('cold')) {
+        pools.push(['Snow', 'Frost', 'Ice', 'Winter', 'Arctic', 'White']);
+    } else if (context.temperature === 'Warm') {
+        pools.push(['Sun', 'Golden', 'Red', 'Flame', 'Dust']);
+    }
+
+    // Biome-based
+    if (context.tags.has('forest')) {
+        pools.push(['Forest', 'Woodland', 'Timber', 'Shade']);
+    }
+    if (context.tags.has('mountain')) {
+        pools.push(['Mountain', 'Highland', 'Rock', 'Cliff']);
+    }
+    if (context.tags.has('water')) {
+        pools.push(['River', 'Marsh', 'Reed', 'Shore']);
+    }
+    if (context.tags.has('plains')) {
+        pools.push(['Plains', 'Steppe', 'Prairie', 'Grassland']);
+    }
+    if (context.tags.has('desert')) {
+        pools.push(['Sand', 'Dune', 'Desert', 'Arid']);
+    }
+    if (context.tags.has('swamp')) {
+        pools.push(['Swamp', 'Bog', 'Marsh', 'Mire']);
+    }
+
+    // Pick from a random pool
+    const pool = pools[Math.floor(Math.random() * pools.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
 }

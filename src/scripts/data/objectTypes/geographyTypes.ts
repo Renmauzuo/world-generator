@@ -20,6 +20,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     /*** Continents Begin ***/
     continent: {
         typeName: "Continent",
+        tags: ['continent'],
         categories: ["geography"],
         nameGenerator: continentNameGenerator,
         attributes: {
@@ -165,7 +166,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     sea: {
         typeName: 'Sea',
-        tags: ['water'],
+        tags: ['region', 'water'],
         children: [
             { type: 'island', min: 0, max: 3 },
             { type: 'reef', min: 0, max: 3, conditions: [{ attribute: 'temperature', value: 'Warm' }] },
@@ -182,7 +183,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     tundra: {
         typeName: 'Tundra',
-        tags: ['cold'],
+        tags: ['region', 'cold'],
         children: [
             { type: 'mammothBull', min: 2, max: 5 },
             { type: 'mammothHerd', min: 1, max: 3 },
@@ -198,7 +199,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     rainforest: {
         typeName: "Rainforest",
-        tags: ['forest'],
+        tags: ['region', 'forest'],
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -218,6 +219,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'owlNest', min: 0, max: 1 },
             { type: 'poisonousSnakeNest', min: 0, max: 2 },
             { type: 'giantWaspNest', min: 0, max: 1 },
+            // Fey settlements
+            { type: 'feyVillage', weightedRange: { 0: 80, 1: 20 } },
             // Settlements
             { type: { village: 40, hamlet: 40, thorp: 20 }, weightedRange: { 0: 60, 1: 40 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.low }] },
             { type: { townSmall: 15, village: 35, hamlet: 35, thorp: 15 }, min: 1, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }] },
@@ -240,7 +243,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     deciduousForest: {
         typeName: "Deciduous Forest",
-        tags: ['forest'],
+        tags: ['region', 'forest'],
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -260,6 +263,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'giantWaspNest', min: 0, max: 1 },
             { type: 'direBoar', min: 0, max: 1 },
             { type: 'dragonLairGreen', min: 0, max: 1 },
+            // Fey settlements
+            { type: 'feyVillage', weightedRange: { 0: 80, 1: 20 } },
             // Settlements
             { type: { village: 40, hamlet: 40, thorp: 20 }, weightedRange: { 0: 60, 1: 40 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.low }] },
             { type: { townSmall: 15, village: 35, hamlet: 35, thorp: 15 }, min: 1, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }] },
@@ -282,7 +287,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     coniferousForest: {
         typeName: 'Coniferous Forest',
-        tags: ['forest', 'cold'],
+        tags: ['region', 'forest', 'cold'],
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -298,6 +303,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'owlNest', min: 0, max: 2 },
             { type: 'worgPack', min: 0, max: 1 },
             { type: 'dreadWolf', min: 0, max: 1 },
+            // Fey settlements
+            { type: 'feyVillage', weightedRange: { 0: 80, 1: 20 } },
             // Settlements
             { type: { village: 40, hamlet: 40, thorp: 20 }, weightedRange: { 0: 60, 1: 40 }, conditions: [{ attribute: 'populationDensity', value: populationDensity.low }] },
             { type: { townSmall: 15, village: 35, hamlet: 35, thorp: 15 }, min: 1, max: 2, conditions: [{ attribute: 'populationDensity', value: populationDensity.average }] },
@@ -319,7 +326,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     plains: {
         typeName: "Plains",
-        tags: ['plains'],
+        tags: ['region', 'plains'],
         categories: ['geography'],
         nameGenerator: plainsNameGenerator,
         children: [
@@ -362,7 +369,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     hills: {
         typeName: "Hills",
-        tags: ['hills'],
+        tags: ['region', 'hills'],
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         children: [
@@ -377,6 +384,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'hawkAdult', min: 0, max: 2 },
             { type: 'direBoar', min: 0, max: 1 },
             { type: 'dragonLairCopper', min: 0, max: 1 },
+            // Undead settlements
+            { type: 'undeadCrypt', weightedRange: { 0: 85, 1: 15 } },
             // NPC wilderness groups
             { type: 'banditPatrol', min: 0, max: 1 },
             { type: 'banditCamp', weightedRange: { 0: 80, 1: 20 } },
@@ -390,7 +399,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     swamp: {
         typeName: "Swamp",
-        tags: ['swamp'],
+        tags: ['region', 'swamp'],
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: swampNameGenerator,
@@ -403,6 +412,8 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'constrictorSnakeNest', min: 0, max: 2 },
             { type: 'giantToadDen', min: 0, max: 2 },
             { type: 'dragonLairBlack', min: 0, max: 1 },
+            // Undead settlements
+            { type: 'undeadCrypt', weightedRange: { 0: 80, 1: 20 } },
             // NPC wilderness groups — undead hunters are drawn to swamps
             { type: 'undeadHunters', weightedRange: { 0: 75, 1: 25 } },
             { type: 'banditCamp', weightedRange: { 0: 85, 1: 15 } },
@@ -412,7 +423,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     desert: {
         typeName: "Desert",
-        tags: ['desert'],
+        tags: ['region', 'desert'],
         inheritAttributes: ["temperature"],
         nameGenerator: desertNameGenerator,
         children: [
@@ -431,7 +442,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     savanna: {
         typeName: "Savanna",
-        tags: ['plains'],
+        tags: ['region', 'plains'],
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: savannaNameGenerator,
@@ -458,7 +469,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     coast: {
         typeName: "Coast",
-        tags: ['water'],
+        tags: ['region', 'water'],
         categories: ['geography'],
         children: [
             { type: 'beach', min: 1, max: 3 },
@@ -496,7 +507,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     mountainRange: {
         typeName: "Mountain Range",
-        tags: ['mountain'],
+        tags: ['region', 'mountain'],
         inheritAttributes: ["temperature"],
         nameGenerator: mountainRangeNameGenerator,
         children: [
@@ -512,7 +523,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     lake: {
         typeName: "Lake",
-        tags: ['water'],
+        tags: ['region', 'water'],
         nameGenerator: lakeNameGenerator,
         children: [
             { type: 'naiadSpring', min: 0, max: 1 },
@@ -526,7 +537,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     river: {
         typeName: "River",
-        tags: ['water'],
+        tags: ['region', 'water'],
         nameGenerator: riverNameGenerator,
         children: [
             { type: 'crocodileDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] },
@@ -545,6 +556,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     // Rare ancient pockets where civilization hasn't reached and prehistoric creatures survived
     forgottenIsland: {
         typeName: "Forgotten Island",
+        tags: ['region'],
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 1 },
@@ -555,12 +567,13 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'giantSpiderLair', min: 0, max: 2 },
             { type: 'beach', min: 1, max: 2 },
             { type: 'cave', min: 0, max: 2 },
-            { type: 'plesiosaurusAdult', min: 0, max: 2 }
+            { type: 'plesiosaurusAdult', min: 0, max: 2 },
+            { type: 'feyVillage', weightedRange: { 0: 70, 1: 30 } },
         ]
     },
     forgottenForest: {
         typeName: "Forgotten Forest",
-        tags: ['forest'],
+        tags: ['region', 'forest'],
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 2 },
@@ -571,11 +584,13 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'spiderNest', min: 0, max: 2 },
             { type: 'boarSounder', min: 0, max: 2 },
             { type: 'awakenedTreeCopse', min: 0, max: 1 },
-            { type: 'broodmother', min: 0, max: 1 }
+            { type: 'broodmother', min: 0, max: 1 },
+            { type: 'feyVillage', weightedRange: { 0: 70, 1: 30 } },
         ]
     },
     forgottenValley: {
         typeName: "Forgotten Valley",
+        tags: ['region'],
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 1 },

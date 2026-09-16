@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<title>World Generator</title>
 </head>
-<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=a0f73d287b157fcbac250695f077787c">
+<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=310473738dffc6a537128786938323e6">
 
 <body>
 	<div class="container panel" id="control-panel"><button id="button-generate-new">Generate New World</button><br><label for="starting-node">Starting with:</label><select id="starting-node">
@@ -13,11 +13,11 @@
 			<option value="plane">Plane</option>
 			<option value="materialPlane">Material Plane</option>
 			<option value="planet">Planet</option>
-		</select><label id="preset-label" for="load-preset">Load preset:</label><select id="load-preset"></select><label id="load-label" for="load-saved">Load saved:</label><select id="load-saved"></select><br><button id="button-import-root">Import</button><br><button id="button-export-root">Export</button><br><button id="button-save">Save</button></div>
+		</select><label id="preset-label" for="load-preset">Load preset:</label><select id="load-preset"></select><label id="load-label" for="load-saved">Load saved:</label><select id="load-saved"></select><br><button id="button-import-root">Import</button><br><button id="button-export-root">Export</button><button id="button-export-root-players">Export (Players)</button><br><button id="button-save">Save</button></div>
 	<div class="container" id="generation-container"></div>
 	<div class="container panel" id="info-panel">
-		<h2></h2><label for="name">Name:</label><input type="text" id="name">
-		<div id="fields"></div><button id="button-import-selected">Import Child</button><br><button id="button-export-selected">Export</button><br><button id="button-delete-selected">Delete</button>
+		<h2></h2><label for="name">Name:</label><input type="text" id="name"><br><label class="gm-only-label" for="gm-only"><input type="checkbox" id="gm-only"> GM Only</label>
+		<div id="fields"></div><button id="button-import-selected">Import Child</button><br><button id="button-export-selected">Export</button><button id="button-export-selected-players">Export (Players)</button><br><button id="button-delete-selected">Delete</button>
 	</div>
 	<div id="statblock-modal">
 		<div class="statblock-modal-content"><button id="statblock-modal-close">✕</button>
@@ -25,7 +25,7 @@
 		</div>
 	</div>
 	<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-	<script src="scripts/scripts.min.js?v=bad34b6e152a334bdf7b4bb385765a96"></script>
+	<script src="scripts/scripts.min.js?v=a9fca58338c0f63b9dc0a8b6bd0f5bdb"></script>
 </body>
 
 </html>

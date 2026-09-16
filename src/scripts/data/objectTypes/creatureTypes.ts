@@ -1,12 +1,20 @@
 import type { ObjectTypeTemplate } from '../../types';
 import { temperatureList } from '../constants';
-import { npcSetup, dragonbornNpcSetup, environmentalResistanceSetup } from '../../attributeGenerators';
+import { npcSetup, dragonbornNpcSetup, environmentalResistanceSetup, speciesSetup } from '../../attributeGenerators';
 import {
     dragonNameGenerator,
     extraplanarNameGenerator,
-    feyNameGenerator
+    feyNameGenerator,
+    feyVillageNameGenerator,
+    archfeyNameGenerator
 } from '../../nameGenerators';
 import { npcNameGenerator } from '../../npcNameGenerators';
+
+// Forward reference — will be populated by the main objectTypes module after merge
+let objectTypesRef: Record<string, ObjectTypeTemplate> = {};
+export function setObjectTypesRef(ref: Record<string, ObjectTypeTemplate>) {
+    objectTypesRef = ref;
+}
 
 export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     /*** Points of Interest Begin ***/
@@ -43,6 +51,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     // Groups of creatures
     wolfPack: {
         typeName: "Wolf Pack",
+        speciationId: 'wolf',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'wolfAlpha', min: 1, max: 1 },
             { type: 'wolf', min: 2, max: 6 },
@@ -51,6 +62,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     wolfDen: {
         typeName: "Wolf Den",
+        speciationId: 'wolf',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'wolfAlpha', min: 1, max: 1 },
             { type: 'wolf', min: 1, max: 4 },
@@ -59,6 +73,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     bearDen: {
         typeName: "Bear Den",
+        speciationId: 'bear',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'bearAdult', min: 1, max: 1 },
             { type: 'bearCub', min: 0, max: 3 }
@@ -66,6 +83,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     boarSounder: {
         typeName: "Boar Sounder",
+        speciationId: 'boar',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'boarAdult', min: 2, max: 5 },
             { type: 'boarPiglet', min: 0, max: 4 }
@@ -73,6 +93,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     horseHerd: {
         typeName: "Horse Herd",
+        speciationId: 'horse',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'horseStallion', min: 1, max: 1 },
             { type: 'horseMare', min: 2, max: 6 },
@@ -81,36 +104,54 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     sharkPack: {
         typeName: "Shark Pack",
+        speciationId: 'shark',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'sharkAdult', min: 2, max: 5 }
         ]
     },
     squidShoal: {
         typeName: "Squid Shoal",
+        speciationId: 'squid',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'squidAdult', min: 2, max: 6 }
         ]
     },
     worgPack: {
         typeName: "Worg Pack",
+        speciationId: 'worg',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'worgAdult', min: 2, max: 5 }
         ]
     },
     whalePod: {
         typeName: "Whale Pod",
+        speciationId: 'whale',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'whaleAdult', min: 2, max: 6 }
         ]
     },
     spiderNest: {
         typeName: "Spider Nest",
+        speciationId: 'giantSpider',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'giantSpiderAdult', min: 2, max: 6 }
         ]
     },
     eagleNest: {
         typeName: "Eagle Nest",
+        speciationId: 'eagle',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'eagleAdult', min: 1, max: 2 },
             { type: 'eaglet', min: 0, max: 3 }
@@ -118,6 +159,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     apeTroop: {
         typeName: "Ape Troop",
+        speciationId: 'ape',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'apeAdult', min: 2, max: 6 },
             { type: 'apeJuvenile', min: 0, max: 3 }
@@ -140,6 +184,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     crocodileDen: {
         typeName: "Crocodile Den",
+        speciationId: 'crocodile',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'crocodileAdult', min: 1, max: 4 }
         ]
@@ -253,18 +300,27 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     camelCaravan: {
         typeName: "Camel Caravan",
+        speciationId: 'camel',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'camelSolitary', min: 3, max: 8 }
         ]
     },
     scorpionNest: {
         typeName: "Scorpion Nest",
+        speciationId: 'giantScorpion',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'giantScorpionAdult', min: 1, max: 3 }
         ]
     },
     giantSpiderLair: {
         typeName: "Giant Spider Lair",
+        speciationId: 'giantSpider',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'giantSpiderAdult', min: 1, max: 4 }
         ]
@@ -272,6 +328,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     // Reskinned creature groups
     lionPride: {
         typeName: "Lion Pride",
+        speciationId: 'lion',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'lionMale', min: 1, max: 2 },
             { type: 'lionFemale', min: 2, max: 6 },
@@ -281,28 +340,41 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     tigerSolitary: {
         // Tigers are solitary — just a single creature node that spawns in forests
         typeName: "Tiger",
+        speciationId: 'tiger',
         creature: "saberToothedTiger",
-        attributes: { challengeRating: { min: 1, max: 3 } }
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { challengeRating: { min: 1, max: 3 }, species: '' }
     },
     pantherSolitary: {
         typeName: "Panther",
+        speciationId: 'panther',
         creature: "saberToothedTiger",
-        attributes: { challengeRating: [.25, .5, 1] }
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { challengeRating: [.25, .5, 1], species: '' }
     },
     hyenaPack: {
         typeName: "Hyena Pack",
+        speciationId: 'hyena',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'hyenaAdult', min: 3, max: 8 }
         ]
     },
     jackalPack: {
         typeName: "Jackal Pack",
+        speciationId: 'jackal',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'jackalAdult', min: 2, max: 6 }
         ]
     },
     zebraHerd: {
         typeName: "Zebra Herd",
+        speciationId: 'zebra',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'zebraStallion', min: 1, max: 1 },
             { type: 'zebraMare', min: 3, max: 8 },
@@ -311,6 +383,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     gorillaTroop: {
         typeName: "Gorilla Troop",
+        speciationId: 'gorilla',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'gorillaSilverback', min: 1, max: 1 },
             { type: 'gorillaAdult', min: 2, max: 5 },
@@ -319,6 +394,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     warthogSounder: {
         typeName: "Warthog Sounder",
+        speciationId: 'warthog',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'warthogAdult', min: 2, max: 5 },
             { type: 'warthogPiglet', min: 0, max: 4 }
@@ -326,60 +404,90 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     monkeyTroop: {
         typeName: "Monkey Troop",
+        speciationId: 'monkey',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'monkeyAdult', min: 4, max: 12 }
         ]
     },
     baboonTroop: {
         typeName: "Baboon Troop",
+        speciationId: 'baboon',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'baboonAdult', min: 4, max: 10 }
         ]
     },
     vultureFlock: {
         typeName: "Vulture Flock",
+        speciationId: 'vulture',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'vultureAdult', min: 2, max: 6 }
         ]
     },
     badgerSett: {
         typeName: "Badger Sett",
+        speciationId: 'badger',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'badgerAdult', min: 1, max: 3 }
         ]
     },
     batColony: {
         typeName: "Bat Colony",
+        speciationId: 'bat',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'batSwarm', min: 3, max: 12 }
         ]
     },
     alligatorDen: {
         typeName: "Alligator Den",
+        speciationId: 'alligator',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'alligatorAdult', min: 1, max: 4 }
         ]
     },
     constrictorSnakeNest: {
         typeName: "Snake Nest",
+        speciationId: 'constrictorSnake',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'constrictorSnakeAdult', min: 1, max: 4 }
         ]
     },
     poisonousSnakeNest: {
         typeName: "Viper Nest",
+        speciationId: 'poisonousSnake',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'poisonousSnakeAdult', min: 1, max: 4 }
         ]
     },
     giantToadDen: {
         typeName: "Toad Den",
+        speciationId: 'giantToad',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'giantToadAdult', min: 1, max: 3 }
         ]
     },
     giantWaspNest: {
         typeName: "Wasp Nest",
+        speciationId: 'giantWasp',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'giantWaspAdult', min: 2, max: 6 }
         ]
@@ -387,6 +495,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     // Dinosaur groups
     triceratopsHerd: {
         typeName: "Triceratops Herd",
+        speciationId: 'triceratops',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'triceratopsAdult', min: 2, max: 5 },
             { type: 'triceratopsJuvenile', min: 0, max: 3 }
@@ -394,12 +505,18 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     pterosaurFlock: {
         typeName: "Pterosaur Flock",
+        speciationId: 'pterosaur',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'pterosaurAdult', min: 2, max: 6 }
         ]
     },
     elephantHerd: {
         typeName: "Elephant Herd",
+        speciationId: 'elephant',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'elephantMatriarch', min: 1, max: 1 },
             { type: 'elephantCow', min: 1, max: 4 },
@@ -409,6 +526,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     elkHerd: {
         typeName: "Elk Herd",
+        speciationId: 'elk',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'elkBull', min: 1, max: 2 },
             { type: 'elkCow', min: 2, max: 6 },
@@ -417,12 +537,18 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     goatHerd: {
         typeName: "Mountain Goat Herd",
+        speciationId: 'goat',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'goatAdult', min: 3, max: 8 }
         ]
     },
     mammothHerd: {
         typeName: "Mammoth Herd",
+        speciationId: 'mammoth',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'mammothMatriarch', min: 1, max: 1 },
             { type: 'mammothCow', min: 1, max: 4 },
@@ -432,12 +558,18 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     octopusDen: {
         typeName: "Octopus Den",
+        speciationId: 'octopus',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'octopusAdult', min: 1, max: 3 }
         ]
     },
     owlNest: {
         typeName: "Owl Nest",
+        speciationId: 'owl',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'owlAdult', min: 1, max: 2 },
             { type: 'owlet', min: 0, max: 3 }
@@ -445,6 +577,9 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
     },
     rhinoCrash: {
         typeName: "Rhinoceros Crash",
+        speciationId: 'rhinoceros',
+        customSetup: (node) => speciesSetup(node, objectTypesRef),
+        attributes: { species: '' },
         children: [
             { type: 'rhinoAdult', min: 1, max: 4 }
         ]
@@ -1709,4 +1844,208 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         attributes: { challengeRating: { min: 1, max: 1 } }
     },
     /*** Creatures End ***/
+
+    /*** Fey Settlements Begin ***/
+    feyVillage: {
+        typeName: "Fey Village",
+        nameGenerator: feyVillageNameGenerator,
+        children: [
+            { type: 'dryadGrove', min: 1, max: 2 },
+            { type: 'spriteNest', min: 1, max: 3 },
+            { type: 'satyrCircle', min: 1, max: 2 },
+            { type: 'centaurPatrol', min: 0, max: 2 },
+            { type: 'blinkDogPack', min: 0, max: 2 },
+            { type: 'naiadSpring', min: 0, max: 1 },
+            { type: 'feyHut', min: 0, max: 3 },
+            { type: 'archfeyCourt', weightedRange: { 0: 75, 1: 25 } },
+        ]
+    },
+    spriteNest: {
+        typeName: "Sprite Nest",
+        children: [
+            { type: 'spriteSolitary', min: 3, max: 8 }
+        ]
+    },
+    spriteSolitary: {
+        typeName: "Sprite",
+        nameGenerator: feyNameGenerator,
+        creature: "sprite",
+        variant: "enchanter",
+        attributes: { challengeRating: [.25, .5, 1], alignment: 'Neutral Good' }
+    },
+    satyrCircle: {
+        typeName: "Satyr Circle",
+        children: [
+            { type: 'satyrSolitary', min: 2, max: 5 },
+            { type: 'satyrPiper', weightedRange: { 0: 50, 1: 50 } },
+        ]
+    },
+    satyrSolitary: {
+        typeName: "Satyr",
+        nameGenerator: feyNameGenerator,
+        creature: "satyr",
+        attributes: { challengeRating: [.5, 1, 2], alignment: 'Chaotic Neutral' }
+    },
+    satyrPiper: {
+        typeName: "Satyr Piper",
+        nameGenerator: feyNameGenerator,
+        creature: "satyr",
+        attributes: { challengeRating: { min: 3, max: 6 }, alignment: 'Chaotic Neutral' }
+    },
+    centaurPatrol: {
+        typeName: "Centaur Patrol",
+        children: [
+            { type: 'centaurSolitary', min: 2, max: 4 },
+            { type: 'centaurChampion', weightedRange: { 0: 40, 1: 60 } },
+        ]
+    },
+    centaurSolitary: {
+        typeName: "Centaur",
+        nameGenerator: feyNameGenerator,
+        creature: "centaur",
+        attributes: { challengeRating: [.5, 1, 2], alignment: 'Neutral Good' }
+    },
+    centaurChampion: {
+        typeName: "Centaur Champion",
+        nameGenerator: feyNameGenerator,
+        creature: "centaur",
+        attributes: { challengeRating: { min: 3, max: 6 }, alignment: 'Neutral Good' }
+    },
+    blinkDogPack: {
+        typeName: "Blink Dog Pack",
+        children: [
+            { type: 'blinkDogSolitary', min: 2, max: 5 }
+        ]
+    },
+    blinkDogSolitary: {
+        typeName: "Blink Dog",
+        creature: "blinkDog",
+        attributes: { challengeRating: [.25, .5, 1] }
+    },
+    feyHut: {
+        typeName: "Fey Hut",
+        children: [
+            { type: { satyrSolitary: 40, spriteSolitary: 30, dryadSolitary: 20, greenHagSolitary: 10 }, min: 1, max: 2 },
+        ]
+    },
+    greenHagSolitary: {
+        typeName: "Green Hag",
+        nameGenerator: feyNameGenerator,
+        creature: "greenHag",
+        attributes: { challengeRating: { min: 3, max: 6 }, alignment: 'Neutral Evil' }
+    },
+    // Archfey's Court — a rare seat of fey power, ruled by a legendary archfey
+    archfeyCourt: {
+        typeName: "Archfey's Court",
+        children: [
+            { type: 'archfey', min: 1, max: 1 },
+            { type: 'centaurPatrol', min: 1, max: 2 },
+            { type: 'spriteNest', min: 1, max: 2 },
+            { type: 'satyrCircle', min: 1, max: 2 },
+            { type: 'blinkDogPack', min: 1, max: 1 },
+        ]
+    },
+    archfey: {
+        typeName: "Archfey",
+        nameGenerator: archfeyNameGenerator,
+        dynamicCreature: true,
+        attributes: {
+            challengeRating: { min: 15, max: 22 },
+            alignment: 'Chaotic Neutral',
+        },
+        customSetup: (node) => {
+            // Pick a random sentient fey as the base creature
+            const feyBases = ['dryad', 'satyr', 'centaur', 'greenHag', 'seaHag', 'naiad'];
+            const creature = feyBases[Math.floor(Math.random() * feyBases.length)];
+            node.attributes!.creature = creature;
+            node.attributes!.legendary = 3;
+        },
+    },
+    /*** Fey Settlements End ***/
+
+    /*** Undead Settlements Begin ***/
+    undeadCrypt: {
+        typeName: "Ancient Crypt",
+        children: [
+            { type: 'skeletonCrypt', min: 2, max: 4 },
+            { type: 'zombieHorde', min: 1, max: 3 },
+            { type: 'shadowHaunt', min: 1, max: 3 },
+            { type: 'ghoulPack', min: 1, max: 2 },
+            { type: 'wightSolitary', min: 0, max: 2 },
+            { type: 'specterSolitary', min: 0, max: 3 },
+            { type: 'wraithSolitary', min: 0, max: 2 },
+            { type: 'cryptLordChamber', weightedRange: { 0: 60, 1: 40 } },
+        ]
+    },
+    cryptLordChamber: {
+        typeName: "Crypt Lord's Chamber",
+        children: [
+            { type: 'cryptLord', min: 1, max: 1 },
+            { type: 'wightSolitary', min: 1, max: 3 },
+            { type: 'skeletonCrypt', min: 1, max: 2 },
+        ]
+    },
+    /*** Undead Settlements End ***/
+
+    /*** Demonic Settlements Begin ***/
+    demonicFortress: {
+        typeName: "Demonic Fortress",
+        children: [
+            { type: 'demonHorde', min: 2, max: 4 },
+            { type: 'demonWarband', min: 1, max: 3 },
+            { type: 'marilithSolitary', min: 0, max: 1 },
+            { type: 'balorSolitary', min: 0, max: 1 },
+            { type: 'demonLordThrone', weightedRange: { 0: 70, 1: 30 } },
+        ]
+    },
+    demonLordThrone: {
+        typeName: "Demon Lord's Throne",
+        children: [
+            { type: 'balorSolitary', min: 1, max: 1 },
+            { type: 'marilithSolitary', min: 1, max: 2 },
+            { type: 'demonWarband', min: 1, max: 2 },
+        ]
+    },
+    /*** Demonic Settlements End ***/
+
+    /*** Angelic Settlements Begin ***/
+    angelicCitadel: {
+        typeName: "Angelic Citadel",
+        children: [
+            { type: 'angelSolitary', min: 2, max: 5 },
+            { type: 'solarAngel', min: 0, max: 1 },
+            { type: 'solarCourt', weightedRange: { 0: 70, 1: 30 } },
+        ]
+    },
+    solarCourt: {
+        typeName: "Solar's Court",
+        children: [
+            { type: 'solarAngel', min: 1, max: 1 },
+            { type: 'angelSolitary', min: 2, max: 4 },
+        ]
+    },
+    /*** Angelic Settlements End ***/
+
+    /*** Infernal Settlements Begin ***/
+    devilBastion: {
+        typeName: "Devil Bastion",
+        children: [
+            { type: 'devilPatrol', min: 2, max: 4 },
+            { type: 'devilLegion', min: 1, max: 2 },
+            { type: 'erinyesSolitary', min: 0, max: 2 },
+            { type: 'iceDevilSolitary', min: 0, max: 1 },
+            { type: 'pitFiendSolitary', min: 0, max: 1 },
+            { type: 'pitFiendCourt', weightedRange: { 0: 70, 1: 30 } },
+        ]
+    },
+    pitFiendCourt: {
+        typeName: "Pit Fiend's Court",
+        children: [
+            { type: 'pitFiendSolitary', min: 1, max: 1 },
+            { type: 'hornedDevilSolitary', min: 1, max: 2 },
+            { type: 'erinyesSolitary', min: 1, max: 2 },
+            { type: 'devilLegion', min: 1, max: 2 },
+        ]
+    },
+    /*** Infernal Settlements End ***/
 };

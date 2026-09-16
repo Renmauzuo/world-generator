@@ -207,9 +207,22 @@ $(function () {
         const attribute: string = $(this).attr('id');
         // Skip add-child selects — they don't represent node attributes
         if (!attribute || $(this).hasClass('add-child-select')) return;
+        // GM Only checkbox — a node-level visibility flag, not an attribute
+        if (attribute === 'gm-only') {
+            const checked = ($(this)[0] as HTMLInputElement).checked;
+            if (checked) {
+                selectedNode.gmOnly = true;
+            } else {
+                delete selectedNode.gmOnly;
+            }
+            selectedNode.domElement!.toggleClass('gm-only-node', checked);
+            markUnsaved();
+            return;
+        }
         // If its name changed then update the associated DOM element
         if (attribute === 'name') {
-            const labelText = objectTypes[selectedNode.type].typeName + ' (' + $(this)[0].value + ')';
+            const species = selectedNode.attributes?.species ? selectedNode.attributes.species + ' ' : '';
+            const labelText = species + objectTypes[selectedNode.type].typeName + ' (' + $(this)[0].value + ')';
             selectedNode.domElement!.children('.node-label').html(labelText);
             selectedNode.name = $(this)[0].value;
         } else {
@@ -222,6 +235,16 @@ $(function () {
                 // Parse numeric attribute values back to numbers (select elements return strings)
                 const rawValue = $(this)[0].value;
                 selectedNode.attributes![attribute] = isNaN(Number(rawValue)) ? rawValue : Number(rawValue);
+            }
+
+            // Update the tree label when species changes
+            if (attribute === 'species') {
+                const species = selectedNode.attributes?.species ? selectedNode.attributes.species + ' ' : '';
+                let labelText = species + objectTypes[selectedNode.type].typeName;
+                if (selectedNode.name && selectedNode.name.length) {
+                    labelText += ' (' + selectedNode.name + ')';
+                }
+                selectedNode.domElement!.children('.node-label').html(labelText);
             }
         }
 
@@ -344,6 +367,12 @@ $(function () {
         });
     });
 
+    $('#button-export-root-players').on('click', function () {
+        navigator.clipboard.writeText(stringifyNodes(rootNode, true)).then(function () {
+            alert("Exported to clipboard (GM-only nodes excluded)!");
+        });
+    });
+
     $('#button-save').on('click', function () {
         saveWorld();
     });
@@ -383,6 +412,12 @@ $(function () {
         });
     });
 
+    $('#button-export-selected-players').on('click', function () {
+        navigator.clipboard.writeText(stringifyNodes(selectedNode, true)).then(function () {
+            alert("Exported to clipboard (GM-only nodes excluded)!");
+        });
+    });
+
     $('#button-delete-selected').on('click', function () {
         // Can't delete the root node
         if (!selectedNode.parent) {
@@ -414,12 +449,13 @@ function showInfoForNode(node: WorldNode): void {
     const $info = $('#info-panel #fields');
     $info.empty();
     $('#name').attr('value', node.name || '');
+    ($('#gm-only')[0] as HTMLInputElement).checked = !!node.gmOnly;
     if (node.attributes) {
         for (const attribute in node.attributes) {
             // Skip variant and lineage — they're rendered alongside their parent attribute
             if (attribute === 'variant' || attribute === 'lineage') continue;
             // Skip internal attributes that have no template definition or editor
-            if (attribute === 'extraResistances' || attribute === 'dragonColor') continue;
+            if (attribute === 'extraResistances' || attribute === 'dragonColor' || attribute === 'speciesRegistry') continue;
 
             const $label = $('<label for="' + attribute + '">' + (labels[attribute] || capitalize(attribute)) + ': </label>');
             $label.appendTo($info);
@@ -815,11 +851,18 @@ function addChildToNode(childType: string, node: WorldNode): void {
 function domObjectForNode(node: WorldNode): JQuery {
     const template = objectTypes[node.type];
     let labelText = template?.typeName ?? node.type;
+    // Prepend species name if present (e.g. "Torcan Wolf Pack")
+    if (node.attributes?.species) {
+        labelText = node.attributes.species + ' ' + labelText;
+    }
     if (node.name && node.name.length) {
         labelText += ' (' + node.name + ')';
     }
     const hasChildren = !!template?.children;
     const $domElement = $('<div class="node"></div>');
+    if (node.gmOnly) {
+        $domElement.addClass('gm-only-node');
+    }
 
     if (hasChildren) {
         $('<span class="node-toggle">▶</span>').appendTo($domElement);
@@ -930,10 +973,19 @@ function saveWorld(): void {
 
 /** Converts a node and all its children into a JSON string for save/export.
  *  Uses a replacer to skip non-serializable properties (domElement, parent)
- *  without mutating the live node tree. */
-function stringifyNodes(node: WorldNode): string {
+ *  without mutating the live node tree.
+ *
+ *  When `excludeGmOnly` is true, any node flagged `gmOnly` is pruned along with its
+ *  entire subtree — used for player-facing exports. The root node itself is always
+ *  included even if flagged (there's nothing to export otherwise). */
+function stringifyNodes(node: WorldNode, excludeGmOnly = false): string {
     return JSON.stringify(node, (key, value) => {
         if (key === 'domElement' || key === 'parent') return undefined;
+        // Prune GM-only children (and their subtrees) from player-facing exports.
+        // Applied on the `children` array so the flagged node never gets serialized.
+        if (excludeGmOnly && key === 'children' && Array.isArray(value)) {
+            return value.filter((child: WorldNode) => !child.gmOnly);
+        }
         return value;
     });
 }
