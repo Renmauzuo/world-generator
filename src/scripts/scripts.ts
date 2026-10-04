@@ -603,27 +603,27 @@ function showInfoForNode(node: WorldNode): void {
             }
             $input.insertAfter($label);
             $('<br>').insertAfter($input);
-        }
-    }
 
-    // Lineage dropdown — shown after the race attribute when the race has lineages
-    if (node.attributes?.lineage !== undefined && node.attributes?.race) {
-        const raceEntry = toolkit5eRaces.find(r => r.name === node.attributes!.race);
-        const raceLineages = raceEntry ? getLineages(raceEntry) : undefined;
-        if (raceLineages?.length) {
-            const $lineageLabel = $('<label for="lineage">' + (labels['lineage'] || 'Lineage') + ': </label>');
-            $lineageLabel.appendTo($info);
-            const $lineageSelect = $('<select id="lineage"></select>');
-            $('<option value="">None</option>').appendTo($lineageSelect);
-            for (const lineage of raceLineages) {
-                const $option = $('<option></option>').attr('value', lineage.name).html(lineage.name);
-                if (lineage.name === node.attributes.lineage) {
-                    $option.attr('selected', 'selected');
+            // Lineage dropdown — shown immediately after the race selector when the race has lineages
+            if (attribute === 'race' && node.attributes.lineage !== undefined) {
+                const raceEntry = toolkit5eRaces.find(r => r.name === node.attributes!.race);
+                const raceLineages = raceEntry ? getLineages(raceEntry) : undefined;
+                if (raceLineages?.length) {
+                    const $lineageLabel = $('<label for="lineage">' + (labels['lineage'] || 'Lineage') + ': </label>');
+                    $lineageLabel.appendTo($info);
+                    const $lineageSelect = $('<select id="lineage"></select>');
+                    $('<option value="">None</option>').appendTo($lineageSelect);
+                    for (const lineage of raceLineages) {
+                        const $option = $('<option></option>').attr('value', lineage.name).html(lineage.name);
+                        if (lineage.name === node.attributes.lineage) {
+                            $option.attr('selected', 'selected');
+                        }
+                        $option.appendTo($lineageSelect);
+                    }
+                    $lineageSelect.insertAfter($lineageLabel);
+                    $('<br>').insertAfter($lineageSelect);
                 }
-                $option.appendTo($lineageSelect);
             }
-            $lineageSelect.insertAfter($lineageLabel);
-            $('<br>').insertAfter($lineageSelect);
         }
     }
 
