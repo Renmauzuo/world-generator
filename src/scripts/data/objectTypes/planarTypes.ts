@@ -1,4 +1,5 @@
 import type { ObjectTypeTemplate } from '../../types';
+import { sourceKeys } from '@toolkit5e/base';
 import { alignmentList, elementList } from '../constants';
 import { collectAncestorTags } from '../../helpers';
 import { deitySetup, avatarSetup } from '../../attributeGenerators';
@@ -356,6 +357,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     greaterDeity: {
         typeName: "Greater Deity",
         nameGenerator: deityNameGenerator,
+        source: sourceKeys.toolkit5e,
         dynamicCreature: true,
         registered: true,
         inheritAttributes: ["alignment", "element"],
@@ -373,6 +375,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     lesserDeity: {
         typeName: "Lesser Deity",
         nameGenerator: deityNameGenerator,
+        source: sourceKeys.toolkit5e,
         dynamicCreature: true,
         registered: true,
         inheritAttributes: ["alignment", "element"],
@@ -389,6 +392,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     demigod: {
         typeName: "Demigod",
         nameGenerator: deityNameGenerator,
+        source: sourceKeys.toolkit5e,
         dynamicCreature: true,
         registered: true,
         inheritAttributes: ["alignment", "element"],
@@ -404,6 +408,7 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
     avatar: {
         typeName: "Avatar",
         nameGenerator: avatarNameGenerator,
+        source: sourceKeys.toolkit5e,
         dynamicCreature: true,
         inheritAttributes: ["alignment", "element"],
         attributes: {

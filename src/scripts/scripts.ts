@@ -5,6 +5,7 @@ import { attributeEditors, labels, deityDomains } from './attributeGenerators';
 import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
+import { getToggleableSources, isSourceEnabled, setSourceEnabled, isTypeSourceEnabled } from './sources';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
 import { stringForCR, toTitleCase, races as toolkit5eRaces } from '@toolkit5e/base';
 import Sortable from 'sortablejs';
@@ -61,6 +62,9 @@ $(function () {
         $('#load-preset, #preset-label').hide();
     }
 
+    // Build the source toggles. Each checkbox enables/disables a content source for generation.
+    renderSourceToggles();
+
     // Load the last session's world if available, otherwise create a fresh multiverse
     if (localStorage['currentWorld']) {
         try {
@@ -88,6 +92,12 @@ $(function () {
         const $children = $node.children('.node-children');
         $children.toggle();
         $(this).html($children.is(':visible') ? '▼' : '▶');
+    });
+
+    // Toggle a content source on/off for generation.
+    $('#sources-list').on('change', '.source-checkbox', function () {
+        const sourceId = $(this).attr('data-source-id');
+        if (sourceId) setSourceEnabled(sourceId, $(this).prop('checked'));
     });
 
     $('body').on('click', '.button-generate-children', function (e: JQuery.Event) {
@@ -781,6 +791,39 @@ function generateNode(nodeType: string, parent?: WorldNode): WorldNode {
     return node;
 }
 
+/**
+ * Renders a checkbox per toggleable content source into the control panel.
+ * `'always'`-policy sources are omitted (they can't be filtered). Setting sources
+ * are grouped under their own subheading. Toggling a checkbox enables/disables
+ * that source for future generation (persisted via `sources.ts`).
+ */
+function renderSourceToggles(): void {
+    const $list = $('#sources-list');
+    $list.empty();
+
+    const sources = getToggleableSources();
+    const coreSources = sources.filter(s => (s.filterPolicy ?? 'default') !== 'setting');
+    const settingSources = sources.filter(s => s.filterPolicy === 'setting');
+
+    const appendCheckbox = (source: typeof sources[number]) => {
+        const $label = $('<label class="source-toggle"></label>');
+        const $checkbox = $('<input type="checkbox" class="source-checkbox">')
+            .attr('data-source-id', source.id)
+            .prop('checked', isSourceEnabled(source.id));
+        $label.append($checkbox);
+        $label.append($('<span></span>').text(' ' + source.name));
+        $list.append($label);
+    };
+
+    coreSources.forEach(appendCheckbox);
+
+    // Only show the "Settings" group when there are setting sources to list.
+    if (settingSources.length > 0) {
+        $('<h4 class="sources-subheading"></h4>').text('Settings').appendTo($list);
+        settingSources.forEach(appendCheckbox);
+    }
+}
+
 // Generates children for a node based on its type template and appends them to its DOM element
 function generateChildrenForNode(node: WorldNode): void {
     if (!node.children) {
@@ -809,15 +852,29 @@ function generateChildrenForNode(node: WorldNode): void {
                 } else {
                     numChildren = rand(childTemplate.min!, childTemplate.max!);
                 }
+                // For weighted type pools, drop disabled-source entries up front so they
+                // don't consume probability weight. If nothing is left, skip this template.
+                let weightedPool: Record<string, number> | null = null;
+                if (typeof childTemplate.type === "object") {
+                    weightedPool = {};
+                    for (const [type, weight] of Object.entries(childTemplate.type as Record<string, number>)) {
+                        if (isTypeSourceEnabled(type)) weightedPool[type] = weight;
+                    }
+                    if (Object.keys(weightedPool).length === 0) continue;
+                } else if (!isTypeSourceEnabled(childTemplate.type)) {
+                    // Single-type child from a disabled source — skip entirely.
+                    continue;
+                }
                 for (let i = 0; i < numChildren; i++) {
                     let childType: string;
-                    if (typeof childTemplate.type === "object") {
-                        childType = weightedRand(childTemplate.type as Record<string, number>);
+                    if (weightedPool) {
+                        childType = weightedRand(weightedPool);
                     } else {
-                        childType = childTemplate.type;
+                        childType = childTemplate.type as string;
                     }
                     addChildToNode(childType, node);
-                    if (childTemplate.requiredSibling) {
+                    // Only add the required sibling if its source is enabled too.
+                    if (childTemplate.requiredSibling && isTypeSourceEnabled(childTemplate.requiredSibling)) {
                         addChildToNode(childTemplate.requiredSibling, node);
                     }
                     childrenAdded++;

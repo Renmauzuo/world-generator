@@ -83,6 +83,38 @@ details, #generation-container p {
     font-size: 0.8em;
 }
 
+#sources-panel {
+    margin-top: 1em;
+    border-top: 1px solid #999;
+    padding-top: 0.5em;
+
+    h3 {
+        margin: 0 0 0.5em;
+        font-size: 1em;
+    }
+
+    .sources-subheading {
+        margin: 0.5em 0 0.25em;
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #555;
+    }
+
+    .source-toggle {
+        display: flex;
+        align-items: center;
+        font-size: 0.9em;
+        margin-bottom: 4px;
+        cursor: pointer;
+
+        input {
+            margin: 0 6px 0 0;
+            flex-shrink: 0;
+        }
+    }
+}
+
 h2 {
     margin-top: 0;
 }

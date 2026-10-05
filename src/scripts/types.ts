@@ -47,6 +47,13 @@ export interface ObjectTypeTemplate {
    */
   dynamicCreature?: boolean;
   /**
+   * Content source id (see `sources` in `@toolkit5e/base`, e.g. `'srd'`, `'toolkit5e'`).
+   * Omit to treat this type as the default source (SRD). Users can toggle sources on/off
+   * in the control panel; types whose resolved source is disabled are skipped during generation.
+   * For creature-backed types, the creature/variant's own source takes precedence when resolving.
+   */
+  source?: string;
+  /**
    * Optional setup function called after attributes are generated and before the name generator.
    * Use for complex multi-attribute logic where derived attributes depend on other attributes.
    * The node's basic attributes (including inherited ones) are already populated when this runs.

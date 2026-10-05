@@ -12,7 +12,9 @@ It is intended for public release eventually.
 - **Build**: Gulp 4 + Rollup (via `gulp-better-rollup`) + `rollup-plugin-typescript2`
 - **CSS**: Dart Sass (`sass` package) + PostCSS + cssnano
 - **Runtime**: jQuery (loaded from CDN), vanilla browser APIs
-- **Packages**: `@toolkit5e/base`, `@toolkit5e/monster-scaler`, and `@toolkit5e/statblock` (consumed via npm versions like `^1.1.4` for production builds; the monster-scaler site uses `file:` references for local development)
+- **Packages**: `@toolkit5e/base`, `@toolkit5e/monster-scaler`, and `@toolkit5e/statblock`. Currently pointed at the sibling repo via `file:../toolkit5e/packages/<name>` references for local development (so unreleased package changes — like the content-source API — are picked up immediately). **Before a production release, bump these back to published npm version ranges (e.g. `^1.1.6`) once the toolkit5e packages carrying the new API are published, then `npm install` to refresh the lock file.** After changing package source, rebuild toolkit5e (`npm run build`) so the linked `dist/` reflects your changes.
+
+**Stale-type gotcha:** `rollup-plugin-typescript2` caches resolved types in `node_modules/.cache/rollup-plugin-typescript2`. When you change a `file:`-linked package's types (e.g. adding to `@toolkit5e/base`), the world-generator build may fail with phantom "property does not exist" / argument-count errors against the *old* types even though the linked `dist/` is correct. Clear the cache and rebuild: `Remove-Item -Recurse -Force node_modules\.cache\rollup-plugin-typescript2 ; npm run build`.
 - **Output**: `docs/` (GitHub Pages compatible)
 
 ### Build Commands
@@ -52,7 +54,7 @@ src/scripts/
     │   └── creatureTypes.ts  # Creature groups, individual creatures, base NPC types
     └── presets/
         ├── index.ts          # Preset interface + registry array
-        ├── forgottenRealms.ts # Forgotten Realms world tree
+        ├── forgottenRealms.ts # SCRAPPED — copyrighted, do not ship/register (reference only)
         └── everquest.ts      # EverQuest world tree
 ```
 
@@ -122,6 +124,30 @@ Child templates support:
 - `conditions` — array of `Condition` objects evaluated as OR
 - `requiredSibling` — always spawn this type alongside the child
 
+Child generation also filters by **content source** (see below): single-type children from a disabled source are skipped, weighted type pools drop disabled entries before weighting (so they don't consume probability), and a `requiredSibling` only spawns if its own source is enabled.
+
+### Content Sources
+Users can toggle which content sources are included in generation via checkboxes in the control panel ("Sources" section). Source handling lives in `sources.ts`:
+- Source definitions come from `@toolkit5e/base` (`sources` registry, `sourceKeys`, `resolveSourceId`).
+- **Per-domain defaults (important):** the default for untagged content differs by *what the content is*. Creature-backed types default to **SRD** (a scaled/reflavored SRD monster is still SRD content, resolved via `resolveCreatureSource`). Non-creature types — geography, settlements, districts, buildings — are structural scaffolding, not ruleset content, so untagged ones default to the source-agnostic **`common`** source (`filterPolicy: 'always'`, never filtered). This avoids privileging SRD 5.1: a pure SRD 5.2 (or any single-ruleset) campaign still gets a fully populated world, because the scaffolding generates regardless of which ruleset sources are enabled.
+- `ObjectTypeTemplate.source` — optional source id for a node type. For creature-backed types, the creature's (and variant's) own source takes precedence — resolved via `resolveCreatureSource` from `@toolkit5e/monster-scaler`. Dynamic-creature types (deities/avatars) fall back to the template source since their creature is picked at generation time (so their explicit `toolkit5e` tag wins).
+- `resolveTypeSource(nodeType)` resolves a type's effective source (`common` for unknown/untagged non-creature types, SRD for untagged creatures); `isTypeSourceEnabled(nodeType)` is the generation gate. Unknown source ids are treated as always-on.
+- The enabled-source set is a `Set<string>` persisted to `localStorage['enabledSources']`. `getAllSources` / `getToggleableSources` / `isSourceEnabled` / `setSourceEnabled` are the public API.
+
+**Filter policy** (`Source.filterPolicy` from base): attribution (what content *is*) is independent of filtering (whether it generates). Each source declares a policy:
+- `'default'` — user-toggleable checkbox, enabled by default. SRD and toolkit5e are both `'default'`.
+- `'always'` — exempt from filtering: `isSourceEnabled` always returns true, no checkbox rendered. For purely-flavor content that should appear in any setting.
+- `'setting'` — opt-in only: starts disabled, rendered under a separate "Settings" subheading. For campaign-setting-specific content (the planned EverQuest/Norrath preset will use this — tag EQ-unique creatures and geography with a `'setting'` source so they never bleed into a generic D&D world, and have the preset auto-enable that source on load).
+
+The default enabled set is every `'default'`-policy source (so `'setting'` sources start off; `'always'` sources like `common` aren't in the set because they're never filtered). An empty saved set is respected (user turned everything off); only absent/corrupt storage falls back to defaults. `setSourceEnabled` is a no-op for `'always'` sources.
+- UI: `renderSourceToggles()` builds a checkbox per *toggleable* source (`getToggleableSources` omits `'always'`) into `#sources-list`, splitting core vs. `'setting'` sources (the latter under an `h4.sources-subheading`). A delegated `change` handler on `#sources-list .source-checkbox` calls `setSourceEnabled`. Styles under `#sources-panel` in `styles.scss`.
+
+**Decision log**: creature settlements (feyVillage, undeadCrypt, etc.) and their custom leaders stay implicitly **SRD** — they're flavor arrangements of SRD creatures and take no rules liberties, so an SRD-only setting still gets geography/settlements. Deities and avatars are tagged `toolkit5e` (filterable) since they're genuinely custom. If settlement attribution ever needs to be accurate while staying unfiltered, that's the use case for an `'always'`-policy toolkit5e-flavor source — not built yet.
+
+To add a new source: define it in `sourceKeys`/`sources` in `@toolkit5e/base`, then tag content with `source: sourceKeys.<key>` (on `MonsterTemplate`/`MonsterVariant` for creatures, or `ObjectTypeTemplate` for world-gen types). The checkbox appears automatically.
+
+**Currently tagged `toolkit5e`:** the deity tiers (`greaterDeity`, `lesserDeity`, `demigod`) and `avatar`. These are heavily custom concepts (dynamic creature scoring, auto-generated legendary actions, divine title generation) that aren't in the core rules, even though they borrow SRD creatures as a base — so users who disable the toolkit5e source won't generate them. Everything else is implicitly SRD: our creatures are SRD monsters reflavored or scaled a few CRs, which we treat as SRD. The one creature-level exception lives in the package: the `squid` variant on `cephalopod` (tagged `toolkit5e` in monster-scaler). Because deity/avatar types are `dynamicCreature: true`, `resolveTypeSource` reads the template `source` for them (it skips the creature-source lookup, since their base creature is chosen at generation time).
+
 ### Node Registry
 A global `Map<string, WorldNode[]>` in `nodeRegistry.ts` that tracks nodes by type for cross-tree references. Only types with `registered: true` on their template are tracked. The registry is:
 - Populated in `generateNode` after a registered node is created
@@ -133,17 +159,30 @@ Currently registered types: `greaterDeity`, `lesserDeity`, `demigod` (deity refe
 To avoid circular imports, `nodeRegistry.ts` does not import `objectTypes.ts` — the `registered` check happens in `scripts.ts` before calling `registerNode`. The `registerTree` function accepts a `Set<string>` of registered type keys for the load/import path.
 
 ### Preset Worlds
-Pre-built world skeletons defined in `src/scripts/data/presets.ts` as typed `WorldNode` trees. Bundled directly into the JS at build time — no fetch/CORS issues. The UI shows a "Load preset" dropdown in the control panel.
+Pre-built world skeletons defined as typed `WorldNode` trees in `src/scripts/data/presets/`. Bundled directly into the JS at build time — no fetch/CORS issues. The UI shows a "Load preset" dropdown in the control panel (hidden when `presets` is empty).
 
 Presets provide the high-level structure (planes, continents, major regions) with names and attributes set. Users generate children to fill in the details with random content.
 
-Current presets:
-- **Forgotten Realms** — Toril with Faerûn, Kara-Tur, Maztica, Zakhara; the Great Wheel outer planes; inner elemental planes; Feywild and Shadowfell
-- **EverQuest** — Norrath with Antonica, Odus, Faydwer, Kunark, Velious; Luclin; the Planes of Power (Fire, Water, Earth, Air, Valor, Growth, Hate, Fear, etc.)
+**Current status: no presets are registered.** The registry array in `index.ts` (`export const presets: Preset[] = []`) is empty, so the dropdown is hidden. Two preset *files* exist on disk but are not imported/registered:
+- `forgottenRealms.ts` — **scrapped and must not be shipped.** Forgotten Realms is copyrighted/not distributable. Kept on disk for reference only; do not re-register it.
+- `everquest.ts` — Norrath (Antonica, Odus, Faydwer, Kunark, Velious; Luclin; the Planes of Power). Considered OK to ship. This is the candidate to re-enable once the EverQuest *setting source* (see below) exists so its unique content can be scoped.
 
-To add a new preset: create a new file in `src/scripts/data/presets/`, export the `WorldNode`, and add it to the array in `index.ts`.
+To add/enable a preset: create (or keep) a file in `src/scripts/data/presets/`, export the `WorldNode`, `import` it in `index.ts`, and push a `{ name, data }` entry onto the `presets` array.
 
-Presets also serve as a **litmus test for the generator's expressiveness**. If a preset requires hand-placing content that the random generator can't produce naturally, that's a signal the generation algorithm needs refinement. The goal is that a fully random world should be able to produce something resembling any of the preset settings — the presets just give it a head start with named locations and creatures.
+Presets also serve as a **litmus test for the generator's expressiveness**. If a preset requires hand-placing content that the random generator can't produce naturally, that's a signal the generation algorithm needs refinement. The goal is that a fully random world should be able to produce something resembling any of the preset settings — the presets just give it a head start with named locations and creatures. (The existing `everquest.ts` is built entirely from generic types, which is a good sign the structure is expressive — the EQ session's job is to add the setting-*specific* flavor, scoped behind a setting source.)
+
+### Building a Setting Source (EverQuest / Norrath — planned, own session)
+A "setting source" packages content unique to a specific campaign world (e.g. Norrath's froglok/Kerran races, EQ-specific creatures and geography) so it only generates when the user opts in, and never bleeds into a generic D&D world. The infrastructure is fully in place from the content-source work; the EQ session should be **pure content**, no new plumbing. Steps:
+
+1. **Define the source** in `@toolkit5e/base`: add a key to `sourceKeys` (e.g. `everquest: 'everquest'`) and a `sources` entry with `filterPolicy: 'setting'` and `homebrew: true`. Rebuild the base package (and clear the rpt2 cache in the world generator — see the stale-type gotcha above).
+2. **Tag setting-unique content** with `source: sourceKeys.everquest`:
+   - EQ-only creatures → `MonsterTemplate`/`MonsterVariant` `source` in `@toolkit5e/monster-scaler`.
+   - EQ-only world-gen types (unique geography, settlements, named-flavor node types) → `ObjectTypeTemplate.source` in the world generator.
+   - Leave genuinely generic scaffolding untagged (stays `common`) and generic SRD creatures untagged (stay SRD) — only tag what's truly EQ-specific.
+3. **Auto-enable on preset load**: when the Norrath preset is loaded, call `setSourceEnabled('everquest', true)` so its content starts generating. (Decide whether loading a preset should also *disable* unrelated setting sources — likely yes for a clean setting experience.) A `'setting'` source is off by default, so without this step a loaded Norrath world would generate no EQ-specific content.
+4. **Re-register the preset** in `presets/index.ts` once its setting content exists.
+
+The UI already groups `'setting'` sources under a "Settings" subheading and omits `'always'` sources, so the EverQuest checkbox appears automatically once the source is defined.
 
 ## Known TODOs / In-Flight
 
@@ -163,7 +202,7 @@ Presets also serve as a **litmus test for the generator's expressiveness**. If a
 - **Lineage-aware demographics** — lineage selection is currently equal-weight random. Could be weighted by biome tags (more drow underground, more wood elves in forests).
 - **Inheritance rethink** — `inheritAttributes` was designed for simple attribute copying but is now used for nuanced things like worship. Consider having `customSetup` handle inheritance explicitly by walking the parent chain, rather than requiring placeholder attributes.
 - **NPC description pools** — current pools are a good start but could be expanded. Consider race-specific descriptions (dwarven braids, elven grace, etc.) and profession-specific ones (priest-specific religious items, guard-specific armor details).
-- **Preset worlds** — preset data files exist but are disabled (copyrighted content). The infrastructure is in place for homebrew presets.
+- **Preset worlds** — the `presets` registry is empty (dropdown hidden). `forgottenRealms.ts` is scrapped (copyrighted, not distributable — kept for reference only, do not re-register). `everquest.ts` (Norrath) is OK to ship and is the next planned preset — to be re-enabled alongside a dedicated EverQuest **setting source** (`filterPolicy: 'setting'`) so its unique content is opt-in. See "Building a Setting Source" above for the step-by-step. **Next session.**
 - **`book` constant in `constants.ts`** — may be unused now, can be cleaned up.
 
 ## Content Coverage
