@@ -176,6 +176,202 @@ h2 {
     }
 }
 
+// Map modal — mirrors #statblock-modal's open/backdrop convention (.is-open).
+// The single #map-modal instance is reused across drill-down navigation.
+#map-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+
+    &.is-open {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .map-modal-content {
+        position: relative;
+        max-height: 90vh;
+        max-width: 90vw;
+        overflow: auto;
+        background-color: #fff;
+        border: 1px solid #922610;
+        padding: 32px 16px 16px;
+        box-sizing: border-box;
+    }
+
+    #map-modal-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 1;
+        margin-bottom: 0;
+        cursor: pointer;
+        background: none;
+        border: 1px solid #922610;
+        color: #922610;
+        font-size: 16px;
+        line-height: 1;
+        padding: 2px 6px;
+    }
+
+    .map-modal-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 12px;
+
+        label {
+            display: inline-block;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        #map-grid-size {
+            width: 60px;
+            margin-bottom: 0;
+        }
+
+        #map-modal-parent {
+            margin-right: auto; // push it to the left, grid-size stays on the right
+            cursor: pointer;
+        }
+    }
+}
+
+// Floating ghost that trails the cursor while dragging a child tile to a new cell. Positioned
+// at document level (fixed) so it is never clipped by the modal's overflow. Non-interactive.
+.map-drag-ghost {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    padding: 2px 6px;
+    font-size: 0.7em;
+    line-height: 1.2;
+    color: #2b2017;
+    background-color: rgba(244, 236, 216, 0.95);
+    border: 1px solid #922610;
+    border-radius: 3px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    opacity: 0.9;
+    white-space: nowrap;
+}
+
+// The N x N tile grid. renderGrid sets --map-grid-size (= N) so the grid lays
+// out as N equal columns/rows of square unit tiles.
+#map-modal-body {
+    display: grid;
+    grid-template-columns: repeat(var(--map-grid-size, 1), 1fr);
+    grid-auto-rows: 1fr;
+    gap: 2px;
+    background-color: #999;
+    border: 1px solid #999;
+
+    // Keep tiles square and the whole grid within the modal viewport.
+    aspect-ratio: 1 / 1;
+    width: min(70vh, 70vw);
+}
+
+// Every cell renders as a .map-tile; its kind adds a modifier class.
+// renderGrid is expected to emit: .map-tile + one of
+// .map-tile--child / .map-tile--terrain / .map-tile--void. Child tiles get an inline
+// background-color (the resolved Map_Color) and, when map-capable, .map-tile--drillable
+// which adds the corner-fold affordance.
+.map-tile {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0.7em;
+    line-height: 1.1;
+    text-align: center;
+    word-break: break-word;
+    user-select: none;
+}
+
+// Child tile — an occupied Point_Of_Interest. Every child tile is filled with its
+// type's resolved Map_Color (set inline by renderGrid); this block defines the shared
+// framing and keeps the label legible against an arbitrary fill color.
+.map-tile--child {
+    background-color: #cfc7a8; // default fallback; overridden inline by mapColor()
+    border: 1px solid #5a4a2a;
+    cursor: grab;
+
+    &:active {
+        cursor: grabbing;
+    }
+
+    .map-tile-label {
+        background-color: rgba(255, 255, 255, 0.75);
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+}
+
+// Drillable affordance — a corner fold (dog-ear) on map-capable child tiles, signalling
+// the tile has its own map and can be opened (click/double-click). The color says what the
+// tile is; this fold says it is drillable. A zoom cursor on hover reinforces the interaction.
+.map-tile--drillable {
+    cursor: zoom-in;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 0;
+        height: 0;
+        z-index: 2; // keep the fold above an embedded mini-grid
+        // A folded top-right corner: a small triangle in the tile's border color.
+        border-style: solid;
+        border-width: 0 10px 10px 0;
+        border-color: transparent #5a4a2a transparent transparent;
+    }
+}
+
+// Nested one-level-deep preview: a map-capable child WITH its own map renders a miniature
+// of that map filling the tile, in place of the flat color. The label floats above it.
+.map-mini-grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--map-grid-size, 1), 1fr);
+    grid-template-rows: repeat(var(--map-grid-size, 1), 1fr);
+    z-index: 0;
+    pointer-events: none; // purely visual — all interaction stays on the hosting tile
+}
+
+.map-mini-cell {
+    // Grandchild color swatches get an inline background-color; empty kinds use these.
+    &--terrain { background-color: #d8e4c8; }
+    &--void { background-color: #e8e8e8; opacity: 0.5; }
+}
+
+// When a child tile hosts a mini-grid, lift its label above the preview for legibility.
+.map-tile--has-mini .map-tile-label {
+    position: relative;
+    z-index: 1;
+}
+
+// Terrain tile — generic biome fill between children (emptiness ratio > 0). renderGrid sets
+// the background inline to the node's OWN mapColor so a mapped region's filler matches how it
+// appears as a tile on its parent. The fallback here only applies if no inline color is set.
+.map-tile--terrain {
+    background-color: #d8e4c8;
+}
+
+// Void tile — square-completion padding, outside the region's representable area. renderGrid
+// sets the background inline to the node's own mapColor; the opacity keeps it visually recessed
+// so it still reads as "not part of the content" while sharing the type's hue.
+.map-tile--void {
+    background-color: #e8e8e8;
+    opacity: 0.5;
+}
+
 label {
     display: block;
 }

@@ -51,5 +51,13 @@ html(lang="en")
             .statblock-modal-content
                 button#statblock-modal-close ✕
                 #statblock-modal-body
+        #map-modal
+            .map-modal-content
+                button#map-modal-close ✕
+                .map-modal-toolbar
+                    button#map-modal-parent(type="button") ↑ Show parent
+                    label(for="map-grid-size") Grid size:
+                    input#map-grid-size(type="number" min="1")
+                #map-modal-body
         script(src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous")
         script(src="scripts/scripts.min.js")

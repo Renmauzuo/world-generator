@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<title>World Generator</title>
 </head>
-<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=e084f0a9b72eab33fa9d8ff33ddfaf4d">
+<link rel="stylesheet" type="text/css" href="styles/styles.min.css?v=edc291fe6b111b88a4c73c78a19ff1ee">
 
 <body>
 	<div class="container panel" id="control-panel"><button id="button-generate-new">Generate New World</button><br><label for="starting-node">Starting with:</label><select id="starting-node">
@@ -29,8 +29,14 @@
 			<div id="statblock-modal-body"></div>
 		</div>
 	</div>
+	<div id="map-modal">
+		<div class="map-modal-content"><button id="map-modal-close">✕</button>
+			<div class="map-modal-toolbar"><button id="map-modal-parent" type="button">↑ Show parent</button><label for="map-grid-size">Grid size:</label><input id="map-grid-size" type="number" min="1"></div>
+			<div id="map-modal-body"></div>
+		</div>
+	</div>
 	<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-	<script src="scripts/scripts.min.js?v=adca475772ee49b401739e84124c79ec"></script>
+	<script src="scripts/scripts.min.js?v=fa47c05698bb1635de7dd17781cb8b24"></script>
 </body>
 
 </html>

@@ -22,6 +22,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Continent",
         tags: ['continent'],
         categories: ["geography"],
+        // Node Maps: continent-like — anything inside its borders is a child, so no
+        // generic terrain fills between children (non-child tiles are square-completion Void).
+        mapCapable: true,
+        emptinessRatio: 0,
         nameGenerator: continentNameGenerator,
         attributes: {
             temperature: temperatureList
@@ -167,6 +171,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     sea: {
         typeName: 'Sea',
         tags: ['region', 'water'],
+        mapColor: '#2a6fb0',
         children: [
             { type: 'island', min: 0, max: 3 },
             { type: 'reef', min: 0, max: 3, conditions: [{ attribute: 'temperature', value: 'Warm' }] },
@@ -184,6 +189,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     tundra: {
         typeName: 'Tundra',
         tags: ['region', 'cold'],
+        mapColor: '#dfeef5',
         children: [
             { type: 'mammothBull', min: 2, max: 5 },
             { type: 'mammothHerd', min: 1, max: 3 },
@@ -200,6 +206,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     rainforest: {
         typeName: "Rainforest",
         tags: ['region', 'forest'],
+        mapColor: '#1b5e20',
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -244,6 +251,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     deciduousForest: {
         typeName: "Deciduous Forest",
         tags: ['region', 'forest'],
+        mapColor: '#4caf50',
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -289,6 +297,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: 'Coniferous Forest',
         tags: ['region', 'forest', 'cold'],
         categories: ['geography'],
+        // Node Maps: taiga-like — generic coniferous-forest terrain fills the space
+        // between children, so a high emptiness ratio drives Terrain_Tiles into the grid.
+        mapCapable: true,
+        emptinessRatio: 2,
         nameGenerator: forestNameGenerator,
         children: [
             { type: 'forestClearing', min: 1, max: 3 },
@@ -327,6 +339,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     plains: {
         typeName: "Plains",
         tags: ['region', 'plains'],
+        mapColor: '#9acd32',
         categories: ['geography'],
         nameGenerator: plainsNameGenerator,
         children: [
@@ -370,6 +383,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     hills: {
         typeName: "Hills",
         tags: ['region', 'hills'],
+        mapColor: '#8fae5d',
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         children: [
@@ -400,6 +414,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     swamp: {
         typeName: "Swamp",
         tags: ['region', 'swamp'],
+        mapColor: '#4b6b43',
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: swampNameGenerator,
@@ -424,6 +439,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     desert: {
         typeName: "Desert",
         tags: ['region', 'desert'],
+        mapColor: '#e0c068',
         inheritAttributes: ["temperature"],
         nameGenerator: desertNameGenerator,
         children: [
@@ -443,6 +459,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     savanna: {
         typeName: "Savanna",
         tags: ['region', 'plains'],
+        mapColor: '#c7b037',
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: savannaNameGenerator,
@@ -470,6 +487,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     coast: {
         typeName: "Coast",
         tags: ['region', 'water'],
+        mapColor: '#6ca6c9',
         categories: ['geography'],
         children: [
             { type: 'beach', min: 1, max: 3 },
@@ -508,6 +526,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     mountainRange: {
         typeName: "Mountain Range",
         tags: ['region', 'mountain'],
+        mapColor: '#7f8c8d',
         inheritAttributes: ["temperature"],
         nameGenerator: mountainRangeNameGenerator,
         children: [
@@ -524,6 +543,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     lake: {
         typeName: "Lake",
         tags: ['region', 'water'],
+        mapColor: '#3f8fc9',
         nameGenerator: lakeNameGenerator,
         children: [
             { type: 'naiadSpring', min: 0, max: 1 },
@@ -538,6 +558,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     river: {
         typeName: "River",
         tags: ['region', 'water'],
+        mapColor: '#5bc0de',
         nameGenerator: riverNameGenerator,
         children: [
             { type: 'crocodileDen', min: 0, max: 1, conditions: [{ attribute: 'temperature', value: 'Cold', match: false }] },
@@ -574,6 +595,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     forgottenForest: {
         typeName: "Forgotten Forest",
         tags: ['region', 'forest'],
+        mapColor: '#356b4a',
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 2 },
@@ -625,6 +647,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     forestClearing: {
         typeName: "Forest Clearing",
+        mapColor: '#a5c77a',
         children: [
             { type: 'awakenedShrub', min: 0, max: 3 },
             { type: 'npcScout', min: 0, max: 1 },
@@ -632,6 +655,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     },
     forestGrove: {
         typeName: "Grove",
+        mapColor: '#5e8c3a',
         children: [
             { type: 'awakenedTree', min: 0, max: 2 },
             { type: 'awakenedShrub', min: 0, max: 3 },

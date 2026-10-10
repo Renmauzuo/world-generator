@@ -6,6 +6,14 @@ import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize }
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
 import { getToggleableSources, isSourceEnabled, setSourceEnabled, isTypeSourceEnabled } from './sources';
+import { isMapCapable, generateMap } from './mapGenerator';
+import {
+    openMapModal,
+    initMapModal,
+    setMarkUnsavedRef,
+    setShowInfoRef,
+    setObjectTypesRef as setMapModalObjectTypesRef,
+} from './mapModal';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
 import { stringForCR, toTitleCase, races as toolkit5eRaces } from '@toolkit5e/base';
 import Sortable from 'sortablejs';
@@ -183,6 +191,35 @@ $(function () {
         if (e.target === this) {
             $(this).removeClass('is-open');
         }
+    });
+
+    // ─── Node Map wiring ───
+    // The map modal/generator modules keep forward references rather than importing scripts.ts
+    // (which would be circular). Wire them now that objectTypes and markUnsaved are available.
+    // 1. objectTypes ref — mapModal's renderGrid/mapColor/poiLabel read child template metadata.
+    setMapModalObjectTypesRef(objectTypes);
+    // 2. markUnsaved ref — so openMapModal/reconcile can mark the world unsaved.
+    setMarkUnsavedRef(markUnsaved);
+    // 3. showInfoForNode ref — so modal click-select routes through the info panel/tree selection.
+    setShowInfoRef(showInfoForNode);
+    // 4. Attach the modal close/backdrop + tile-interaction listeners once on DOM ready.
+    initMapModal();
+
+    // Generate a map for the selected map-capable node, then swap the control to "Open Map".
+    $('body').on('click', '.button-generate-map', function (e: JQuery.Event) {
+        e.stopPropagation();
+        if (!selectedNode) return;
+        generateMap(selectedNode);
+        markUnsaved();
+        // Re-render the info panel so the Generate control is replaced by the Open control (Req 2.6).
+        showInfoForNode(selectedNode);
+    });
+
+    // Open the map modal for the selected node's existing map.
+    $('body').on('click', '.button-open-map', function (e: JQuery.Event) {
+        e.stopPropagation();
+        if (!selectedNode) return;
+        openMapModal(selectedNode);
     });
 
     // Add child button — generates a single node of the selected type and appends it
@@ -688,6 +725,17 @@ function showInfoForNode(node: WorldNode): void {
         $('<button class="button-view-statblock">View Statblock</button>').appendTo($info);
     }
 
+    // ─── Node Map controls ───
+    // Only map-capable types get a control. Before a map exists, offer "Generate Map";
+    // once a map exists, offer "Open Map" instead (never both). Non-capable types get neither. (Req 1.3, 2.1, 2.3, 6.1)
+    if (isMapCapable(node.type)) {
+        if (!node.map) {
+            $('<button class="button-generate-map">Generate Map</button>').appendTo($info);
+        } else {
+            $('<button class="button-open-map">Open Map</button>').appendTo($info);
+        }
+    }
+
     // ─── Add Child section ───
     const $addChildSection = $('<details class="add-child-section"></details>');
     $('<summary>Add Child</summary>').appendTo($addChildSection);
@@ -1104,10 +1152,77 @@ function recursivePostParseProcess(parentNode: WorldNode): void {
     if (parentNode.attributes && 'undefined' in parentNode.attributes) {
         delete parentNode.attributes['undefined'];
     }
+    // Defensive Node_Map repair on load (Req 4.4, 4.6, 5.3, 5.4, 5.5): clamp any
+    // out-of-range placement coordinates into [0, N-1] and de-dupe colliding tiles so
+    // the loaded map renders without throwing. This performs NO new seed derivation —
+    // recorded coordinates are preserved as closely as possible, and the authoritative
+    // incremental reconcile happens later when the modal opens.
+    sanitizeNodeMap(parentNode);
     if (parentNode.children) {
         for (const index in parentNode.children) {
             parentNode.children[index].parent = parentNode;
             recursivePostParseProcess(parentNode.children[index]);
         }
     }
+}
+
+/** Defensive, non-throwing Node_Map repair applied during load (see recursivePostParseProcess).
+ *  Clamps out-of-range placement coordinates into [0, N-1] and resolves colliding tiles by
+ *  nudging later placements to the next free cell (row-major scan), growing gridSize minimally
+ *  only if the current grid cannot hold every placement. Performs NO seed derivation and never
+ *  calls reconcile/generateMap — recorded coordinates are kept as faithfully as possible. */
+function sanitizeNodeMap(node: WorldNode): void {
+    const map = node.map;
+    if (!map) return;
+
+    const placements = Array.isArray(map.placements) ? map.placements : [];
+
+    // Guard gridSize: must be an integer >= 1 and large enough that N*N can hold every
+    // placement. Derive the floor from the placement count, not from any seed.
+    const minForPlacements = Math.ceil(Math.sqrt(placements.length));
+    let gridSize = map.gridSize;
+    if (!Number.isFinite(gridSize) || gridSize < 1) gridSize = 1;
+    gridSize = Math.max(1, Math.floor(gridSize), minForPlacements);
+    map.gridSize = gridSize;
+
+    if (placements.length === 0) return;
+
+    // Clamp each placement into [0, N-1], then de-dupe collisions. The occupied set uses a
+    // gridSize-independent "col,row" key so growing the grid mid-pass stays consistent.
+    const occupied = new Set<string>();
+    const cellKey = (col: number, row: number) => col + ',' + row;
+
+    for (const placement of placements) {
+        let col = Number.isFinite(placement.col) ? Math.floor(placement.col) : 0;
+        let row = Number.isFinite(placement.row) ? Math.floor(placement.row) : 0;
+        col = Math.min(Math.max(col, 0), map.gridSize - 1);
+        row = Math.min(Math.max(row, 0), map.gridSize - 1);
+
+        // If this clamped cell is taken, scan row-major for the next free cell. Grow the
+        // grid minimally if (and only if) the current grid is already full.
+        if (occupied.has(cellKey(col, row))) {
+            let free = findFreeCell(occupied, map.gridSize);
+            if (!free) {
+                map.gridSize += 1; // minimal growth so a free cell is guaranteed
+                free = findFreeCell(occupied, map.gridSize)!;
+            }
+            col = free.col;
+            row = free.row;
+        }
+
+        occupied.add(cellKey(col, row));
+        placement.col = col;
+        placement.row = row;
+    }
+}
+
+/** Returns the first unoccupied cell in row-major order within an N x N grid, or null if full.
+ *  Uses the same "col,row" key format as its caller so growth stays consistent. */
+function findFreeCell(occupied: Set<string>, gridSize: number): { col: number; row: number } | null {
+    for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+            if (!occupied.has(col + ',' + row)) return { col, row };
+        }
+    }
+    return null;
 }
