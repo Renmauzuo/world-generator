@@ -170,6 +170,76 @@ function clusterOrder(cells: Cell[], n: number, prng: () => number): Cell[] {
 }
 
 /**
+ * Type-aware grouped placement for the "clustered" layout. Children of the same
+ * `type` are laid down together so like-with-like regions emerge (all the tundra
+ * in one part of the continent, etc.) instead of being scattered across the grid.
+ *
+ * Deterministic in the seeded `prng` stream (fixed draw order):
+ *  1. Partition children into type-groups, preserving the first-appearance order of
+ *     the groups and of children within each group (seed-independent).
+ *  2. For each group in turn, draw a seeded anchor cell, order the STILL-FREE cells
+ *     by distance from it (same squared-distance + seeded tie-break as clusterOrder),
+ *     and take the nearest ones for that group.
+ *
+ * Groups compete for a shrinking free-cell pool, so groups whose anchors land near
+ * each other bleed into one another at their edges (organic region borders) while
+ * each type stays mostly contiguous. Returns one Cell per child in the ORIGINAL
+ * children-array order, so the caller zips placements[i] <-> children[i] exactly as
+ * the spread path does.
+ */
+function groupedClusterCells(
+    children: WorldNode[],
+    n: number,
+    prng: () => number,
+): Cell[] {
+    const groupOrder: string[] = [];
+    const groups = new Map<string, number[]>(); // type -> original child indices
+    children.forEach((child, i) => {
+        let bucket = groups.get(child.type);
+        if (!bucket) {
+            bucket = [];
+            groups.set(child.type, bucket);
+            groupOrder.push(child.type);
+        }
+        bucket.push(i);
+    });
+
+    const free = buildCells(n);
+    const freeKeys = new Set(free.map((c) => `${c.col},${c.row}`));
+    const result: Cell[] = new Array(children.length);
+
+    for (const type of groupOrder) {
+        const indices = groups.get(type)!;
+        // Seeded anchor for this group (two draws — fixed order = determinism).
+        const anchorCol = Math.floor(prng() * n);
+        const anchorRow = Math.floor(prng() * n);
+
+        // Order currently-free cells by distance from the anchor, seeded tie-break.
+        const keyed = free
+            .filter((c) => freeKeys.has(`${c.col},${c.row}`))
+            .map((cell) => ({ cell, key: prng() }));
+        keyed.sort((a, b) => {
+            const da =
+                (a.cell.col - anchorCol) * (a.cell.col - anchorCol) +
+                (a.cell.row - anchorRow) * (a.cell.row - anchorRow);
+            const db =
+                (b.cell.col - anchorCol) * (b.cell.col - anchorCol) +
+                (b.cell.row - anchorRow) * (b.cell.row - anchorRow);
+            if (da !== db) return da - db;
+            return a.key - b.key;
+        });
+
+        for (let k = 0; k < indices.length; k++) {
+            const cell = keyed[k].cell;
+            result[indices[k]] = cell;
+            freeKeys.delete(`${cell.col},${cell.row}`);
+        }
+    }
+
+    return result;
+}
+
+/**
  * Generate a fresh Node_Map for a node and attach it to `node.map`.
  *
  * Every child of the node is treated as a Point_Of_Interest and placed on a
@@ -201,17 +271,20 @@ export function generateMap(node: WorldNode): NodeMap {
     const placements: MapPlacement[] = [];
 
     if (poiCount > 0) {
-        const cells = buildCells(n);
-        // Order cells by the chosen strategy, then take the first `poiCount`.
-        let ordered: Cell[];
+        // Clustered layout groups children BY TYPE (like-with-like regions); spread
+        // scatters each child independently. The 50/50 choice above keeps grouping
+        // favored but not guaranteed. Both paths yield one Cell per child in the
+        // original children-array order, so placements zip 1:1 with children.
+        let orderedPerChild: Cell[];
         if (clustered) {
-            ordered = clusterOrder(cells, n, prng);
+            orderedPerChild = groupedClusterCells(children, n, prng);
         } else {
+            const cells = buildCells(n);
             seededShuffle(cells, prng);
-            ordered = cells;
+            orderedPerChild = cells;
         }
         for (let i = 0; i < poiCount; i++) {
-            const cell = ordered[i];
+            const cell = orderedPerChild[i];
             const child = children[i];
             placements.push({
                 childRef: assignChildRef(child),
