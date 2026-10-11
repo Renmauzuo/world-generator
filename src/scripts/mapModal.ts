@@ -35,6 +35,19 @@ export function setShowInfoRef(fn: (node: WorldNode) => void): void {
 }
 
 /**
+ * Forward reference to the host's `generateChildrenForNode(node)` (defined in scripts.ts, the
+ * Rollup DOM entry). Same forward-reference pattern as `markUnsavedRef` / `showInfoRef`: a
+ * no-op default plus a setter the host wires on DOM ready. Powers the modal's "Generate
+ * Children" button — it reuses the host generator so the main tree DOM stays in sync, then the
+ * modal reconciles + re-renders the map. Until wired it is a harmless no-op, so the pure/jsdom
+ * tests need no host.
+ */
+let generateChildrenRef: (node: WorldNode) => void = () => {};
+export function setGenerateChildrenRef(fn: (node: WorldNode) => void): void {
+    generateChildrenRef = fn;
+}
+
+/**
  * The node whose Node_Map is currently displayed in the single `#map-modal`. Tracked so the
  * forthcoming click-select / drill-down (task 19.2) and drag/resize handlers (19.3 / 20.1)
  * can act on the active node. `undefined` while no map is open.
@@ -44,6 +57,40 @@ let currentMapNode: WorldNode | undefined;
 /** The node whose map is currently open in the modal, or `undefined` when none. */
 export function getCurrentMapNode(): WorldNode | undefined {
     return currentMapNode;
+}
+
+/**
+ * Whether child-tile labels are shown on the map. Toggled by the `#map-show-labels` checkbox
+ * in the toolbar. Session-only UI state (not persisted); labels start visible. The toggle is
+ * applied as a `map-hide-labels` class on `#map-modal-body` and the labels are hidden via CSS,
+ * so flipping it is instant and survives `renderGrid` re-renders (drill-down, resize) without
+ * threading state through the render path.
+ */
+let showLabels = true;
+
+/**
+ * Reflect the current `showLabels` state onto `#map-modal-body` by toggling the
+ * `map-hide-labels` class. Called whenever a grid is rendered/opened so the body always matches
+ * the checkbox. No-op when the body element is absent (jsdom tests without the markup).
+ */
+function syncLabelVisibility(): void {
+    const body = document.getElementById('map-modal-body');
+    if (body) {
+        body.classList.toggle('map-hide-labels', !showLabels);
+    }
+}
+
+/**
+ * Handle a `change` on the `#map-show-labels` checkbox: update the `showLabels` state and
+ * apply it to the grid. Pure UI state — not persisted (no `markUnsaved`).
+ */
+function handleShowLabelsChange(): void {
+    const input = document.getElementById('map-show-labels') as HTMLInputElement | null;
+    if (!input) {
+        return;
+    }
+    showLabels = input.checked;
+    syncLabelVisibility();
 }
 
 /**
@@ -506,6 +553,9 @@ export function renderGrid(node: WorldNode): void {
             body.appendChild(tile);
         }
     }
+
+    // Keep label visibility in sync with the toolbar toggle across re-renders.
+    syncLabelVisibility();
 }
 
 /**
@@ -575,6 +625,58 @@ function syncParentButton(node: WorldNode | undefined): void {
     }
     const hasParent = !!findMapParent(node);
     btn.style.display = hasParent ? '' : 'none';
+}
+
+/**
+ * Whether the currently open node's type can generate children at all — i.e. its template
+ * declares a `children` ruleset. Mirrors the host's `generateChildrenForNode`, which bails
+ * when there are no child templates. Used to show the modal's "Generate Children" button only
+ * where it would actually do something.
+ */
+function canGenerateChildren(node: WorldNode | undefined): boolean {
+    const children = node && objectTypesRef[node.type]?.children;
+    return Array.isArray(children) && children.length > 0;
+}
+
+/**
+ * Show/hide the "Generate Children" button based on whether the open node can generate
+ * children (its template declares a child ruleset). Hidden for leaf types so the control never
+ * dead-ends. This naturally covers the "drilled into an empty map-capable child" case: the
+ * button appears, inviting the user to populate the empty map.
+ */
+function syncGenerateButton(node: WorldNode | undefined): void {
+    const btn = document.getElementById('map-modal-generate') as HTMLButtonElement | null;
+    if (!btn) {
+        return;
+    }
+    btn.style.display = canGenerateChildren(node) ? '' : 'none';
+}
+
+/**
+ * Handle a click on the modal "Generate Children" button. Delegates to the host's
+ * `generateChildrenForNode` (which mutates `node.children`, updates the main tree DOM, and
+ * marks the world unsaved) on the currently open node, then reconciles the node's existing
+ * Node_Map so the freshly generated children are auto-placed (preserving any
+ * User_Positioned_Placement), and re-renders the grid in place. No-op when no map is open or
+ * the type can't generate children.
+ */
+function handleGenerateChildren(): void {
+    const node = currentMapNode;
+    if (!node || !node.map || !canGenerateChildren(node)) {
+        return;
+    }
+
+    // Reuse the host generator so the main tree stays in sync (it also calls markUnsaved).
+    generateChildrenRef(node);
+
+    // Fold the new children into the existing map, auto-placing Unplaced_Children while leaving
+    // user-positioned ones put. markUnsaved again only if reconciliation actually changed the map.
+    const changed = reconcilePlacements(node);
+    if (changed) {
+        markUnsavedRef();
+    }
+
+    renderGrid(node);
 }
 
 /**
@@ -878,6 +980,21 @@ export function initMapModal(): void {
         parentBtn.addEventListener('click', navigateToParent);
     }
 
+    // "Generate Children" populates the open node via the host generator, then reconciles and
+    // re-renders the map so the new children appear as tiles.
+    const generateBtn = document.getElementById('map-modal-generate');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', handleGenerateChildren);
+    }
+
+    // Labels toggle: a `change` on the checkbox shows/hides child-tile labels via CSS.
+    const showLabelsInput = document.getElementById('map-show-labels') as HTMLInputElement | null;
+    if (showLabelsInput) {
+        // Reflect the current state onto the checkbox (defaults to checked in markup).
+        showLabelsInput.checked = showLabels;
+        showLabelsInput.addEventListener('change', handleShowLabelsChange);
+    }
+
     wired = true;
 }
 
@@ -918,6 +1035,9 @@ export function openMapModal(node: WorldNode): void {
 
     // Show the "Show parent" button only when there's a map-capable ancestor to go up to.
     syncParentButton(node);
+
+    // Show the "Generate Children" button only when the type can generate children.
+    syncGenerateButton(node);
 
     // Ensure close/backdrop handlers are attached (idempotent).
     initMapModal();

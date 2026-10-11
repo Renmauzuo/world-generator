@@ -12,6 +12,7 @@ import {
     initMapModal,
     setMarkUnsavedRef,
     setShowInfoRef,
+    setGenerateChildrenRef,
     setObjectTypesRef as setMapModalObjectTypesRef,
 } from './mapModal';
 import { scaleMonster, monsterList } from '@toolkit5e/monster-scaler';
@@ -202,7 +203,10 @@ $(function () {
     setMarkUnsavedRef(markUnsaved);
     // 3. showInfoForNode ref — so modal click-select routes through the info panel/tree selection.
     setShowInfoRef(showInfoForNode);
-    // 4. Attach the modal close/backdrop + tile-interaction listeners once on DOM ready.
+    // 4. generateChildrenForNode ref — so the modal's "Generate Children" button reuses the
+    //    host generator (keeping the main tree DOM in sync) before reconciling the map.
+    setGenerateChildrenRef(generateChildrenForNode);
+    // 5. Attach the modal close/backdrop + tile-interaction listeners once on DOM ready.
     initMapModal();
 
     // Generate a map for the selected map-capable node, then swap the control to "Open Map".

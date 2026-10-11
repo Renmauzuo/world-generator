@@ -488,6 +488,7 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Coast",
         tags: ['region', 'water'],
         mapColor: '#6ca6c9',
+        mapPlacement: 'edge',
         categories: ['geography'],
         children: [
             { type: 'beach', min: 1, max: 3 },

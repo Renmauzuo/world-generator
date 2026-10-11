@@ -56,6 +56,11 @@ html(lang="en")
                 button#map-modal-close ✕
                 .map-modal-toolbar
                     button#map-modal-parent(type="button") ↑ Show parent
+                    button#map-modal-generate(type="button") + Generate Children
+                    label.map-labels-toggle(for="map-show-labels")
+                        input#map-show-labels(type="checkbox" checked)
+                        | Labels
+                    .map-toolbar-break
                     label(for="map-grid-size") Grid size:
                     input#map-grid-size(type="number" min="1")
                 #map-modal-body

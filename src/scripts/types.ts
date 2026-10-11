@@ -99,6 +99,22 @@ export interface ObjectTypeTemplate {
    * (Req 7.2, 7.9)
    */
   mapColor?: string;
+  /**
+   * Optional special placement rule for how a node of this type is positioned on its
+   * PARENT's Node_Map. Most child types have no rule (undefined) and are laid out by the
+   * default type-aware grouping. A type with a rule is placed first, into reserved cells,
+   * before the remaining children fill what's left:
+   *
+   *  - `'edge'` — placed on the outermost ring of the grid (the perimeter, one tile deep),
+   *    so these children frame the collection of their siblings. The coast use case: coasts
+   *    sit on the edges of a continent. If there are more such children than perimeter cells,
+   *    the overflow falls back to the normal interior placement.
+   *
+   * Resolved solely from the child type's template, so adding a placement rule needs no
+   * change to the WorldNode data structure. Honored by both `generateMap` and the
+   * incremental `reconcilePlacements` auto-placer.
+   */
+  mapPlacement?: 'edge';
 }
 
 export interface WorldNode {

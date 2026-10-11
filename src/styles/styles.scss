@@ -219,9 +219,17 @@ h2 {
 
     .map-modal-toolbar {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 6px;
         margin-bottom: 12px;
+
+        // Full-width zero-height spacer that forces a wrap, dropping the grid-size
+        // control onto its own line below the parent/labels controls.
+        .map-toolbar-break {
+            flex-basis: 100%;
+            height: 0;
+        }
 
         label {
             display: inline-block;
@@ -234,11 +242,33 @@ h2 {
             margin-bottom: 0;
         }
 
-        #map-modal-parent {
-            margin-right: auto; // push it to the left, grid-size stays on the right
+        #map-modal-parent,
+        #map-modal-generate {
             cursor: pointer;
         }
+
+        // Push the labels toggle (and anything after it on the first line) to the right,
+        // keeping the parent/generate action buttons grouped on the left.
+        .map-labels-toggle {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+
+            input {
+                margin: 0;
+                cursor: pointer;
+            }
+        }
     }
+}
+
+// When labels are toggled off, hide every child-tile label on the grid. Driven by the
+// `#map-show-labels` checkbox via the `map-hide-labels` class on `#map-modal-body`, so the
+// toggle is instant and survives renderGrid re-renders.
+#map-modal-body.map-hide-labels .map-tile-label {
+    display: none;
 }
 
 // Floating ghost that trails the cursor while dragging a child tile to a new cell. Positioned

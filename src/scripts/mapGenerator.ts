@@ -31,6 +31,16 @@ export function getEmptinessRatio(type: string): number {
 }
 
 /**
+ * Resolve a child type's special map-placement rule from its template, or `undefined`
+ * when the type has no rule (the common case — laid out by default type grouping).
+ * Centralizes the lookup so both `generateMap` and `reconcilePlacements` honor it the
+ * same way without importing objectTypes directly. (Custom map placement)
+ */
+export function getMapPlacement(type: string): ObjectTypeTemplate['mapPlacement'] | undefined {
+    return objectTypesRef[type]?.mapPlacement;
+}
+
+/**
  * Smallest integer N such that N*N >= poiCount AND the resulting empty count
  * (N*N - poiCount) satisfies the emptiness ratio. For ratio `r`, the required
  * empty budget is `ceil(r * poiCount)`, so:
@@ -132,6 +142,40 @@ function buildCells(n: number): Cell[] {
 }
 
 /**
+ * Build the perimeter cells of an N x N grid — the outermost ring, one tile deep (any
+ * cell with col or row equal to 0 or N-1). Returned in clockwise order starting from the
+ * top edge, so edge-placed children (e.g. coasts) wrap contiguously around the frame
+ * rather than scattering. For N <= 2 every cell is on the perimeter. For N === 1 the single
+ * cell is returned. Deterministic — order depends only on N.
+ */
+function buildPerimeterCells(n: number): Cell[] {
+    if (n <= 0) {
+        return [];
+    }
+    if (n === 1) {
+        return [{ col: 0, row: 0 }];
+    }
+    const ring: Cell[] = [];
+    // Top edge, left -> right.
+    for (let col = 0; col < n; col++) {
+        ring.push({ col, row: 0 });
+    }
+    // Right edge, top+1 -> bottom.
+    for (let row = 1; row < n; row++) {
+        ring.push({ col: n - 1, row });
+    }
+    // Bottom edge, right-1 -> left.
+    for (let col = n - 2; col >= 0; col--) {
+        ring.push({ col, row: n - 1 });
+    }
+    // Left edge, bottom-1 -> top+1.
+    for (let row = n - 2; row >= 1; row--) {
+        ring.push({ col: 0, row });
+    }
+    return ring;
+}
+
+/**
  * In-place seeded Fisher–Yates shuffle driven by the supplied prng stream.
  * Used for the "spread" layout — children scatter across the whole grid.
  */
@@ -191,6 +235,7 @@ function groupedClusterCells(
     children: WorldNode[],
     n: number,
     prng: () => number,
+    freeCells?: Cell[],
 ): Cell[] {
     const groupOrder: string[] = [];
     const groups = new Map<string, number[]>(); // type -> original child indices
@@ -204,7 +249,10 @@ function groupedClusterCells(
         bucket.push(i);
     });
 
-    const free = buildCells(n);
+    // Lay the groups into the supplied free-cell pool (or the whole grid when none is
+    // given). Edge-placed children are carved out of this pool before we are called, so
+    // the normal grouping only sees the interior cells still available.
+    const free = freeCells ? freeCells.slice() : buildCells(n);
     const freeKeys = new Set(free.map((c) => `${c.col},${c.row}`));
     const result: Cell[] = new Array(children.length);
 
@@ -233,6 +281,79 @@ function groupedClusterCells(
             const cell = keyed[k].cell;
             result[indices[k]] = cell;
             freeKeys.delete(`${cell.col},${cell.row}`);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Full per-child cell assignment for a fresh map, honoring per-type custom map placement
+ * (currently the `'edge'` rule) layered on top of the base clustered/spread layout.
+ *
+ * Steps (deterministic in the seeded `prng` stream — fixed draw order):
+ *  1. Partition children into EDGE children (type template `mapPlacement === 'edge'`) and
+ *     the rest, preserving original indices so the returned Cell[] zips 1:1 with `children`.
+ *  2. Reserve perimeter cells (one tile deep) for the edge children. The ring is rotated by
+ *     a seeded offset so the framing doesn't always start at the top-left, then edge children
+ *     take ring cells in order. If there are more edge children than perimeter cells, the
+ *     overflow is merged back into the normal pool (so nothing is lost on a tiny grid).
+ *  3. Place the remaining (normal + overflow) children over the cells NOT consumed by the
+ *     edge ring, using grouped-by-type clustering or a seeded spread per the `clustered` flag.
+ *
+ * When no child carries an edge rule this reduces exactly to the previous behavior (the whole
+ * grid is the free pool), so existing layouts are unchanged.
+ */
+function assignCells(
+    children: WorldNode[],
+    n: number,
+    prng: () => number,
+    clustered: boolean,
+): Cell[] {
+    const edgeIndices: number[] = [];
+    const normalIndices: number[] = [];
+    children.forEach((child, i) => {
+        if (getMapPlacement(child.type) === 'edge') {
+            edgeIndices.push(i);
+        } else {
+            normalIndices.push(i);
+        }
+    });
+
+    const result: Cell[] = new Array(children.length);
+    const usedKeys = new Set<string>();
+
+    // --- Edge placement: frame the map with the perimeter ring. ---
+    if (edgeIndices.length > 0) {
+        const ring = buildPerimeterCells(n);
+        // Seeded rotation so the ring doesn't always start at the top-left corner (one draw).
+        const start = ring.length > 0 ? Math.floor(prng() * ring.length) : 0;
+        const placeCount = Math.min(edgeIndices.length, ring.length);
+        for (let k = 0; k < placeCount; k++) {
+            const cell = ring[(start + k) % ring.length];
+            result[edgeIndices[k]] = cell;
+            usedKeys.add(`${cell.col},${cell.row}`);
+        }
+        // Overflow edge children (more than the ring can hold) join the normal pool.
+        for (let k = placeCount; k < edgeIndices.length; k++) {
+            normalIndices.push(edgeIndices[k]);
+        }
+    }
+
+    // --- Normal placement over the cells the edge ring didn't consume. ---
+    if (normalIndices.length > 0) {
+        const freeCells = buildCells(n).filter((c) => !usedKeys.has(`${c.col},${c.row}`));
+        const normalChildren = normalIndices.map((i) => children[i]);
+        let perNormal: Cell[];
+        if (clustered) {
+            perNormal = groupedClusterCells(normalChildren, n, prng, freeCells);
+        } else {
+            const pool = freeCells.slice();
+            seededShuffle(pool, prng);
+            perNormal = pool;
+        }
+        for (let k = 0; k < normalIndices.length; k++) {
+            result[normalIndices[k]] = perNormal[k];
         }
     }
 
@@ -271,18 +392,12 @@ export function generateMap(node: WorldNode): NodeMap {
     const placements: MapPlacement[] = [];
 
     if (poiCount > 0) {
-        // Clustered layout groups children BY TYPE (like-with-like regions); spread
-        // scatters each child independently. The 50/50 choice above keeps grouping
-        // favored but not guaranteed. Both paths yield one Cell per child in the
-        // original children-array order, so placements zip 1:1 with children.
-        let orderedPerChild: Cell[];
-        if (clustered) {
-            orderedPerChild = groupedClusterCells(children, n, prng);
-        } else {
-            const cells = buildCells(n);
-            seededShuffle(cells, prng);
-            orderedPerChild = cells;
-        }
+        // assignCells honors per-type custom placement (e.g. the 'edge' rule framing the
+        // map with coasts) on top of the base layout: clustered groups children BY TYPE
+        // (like-with-like regions), spread scatters each child independently. The 50/50
+        // choice above keeps grouping favored but not guaranteed. It yields one Cell per
+        // child in the original children-array order, so placements zip 1:1 with children.
+        const orderedPerChild = assignCells(children, n, prng, clustered);
         for (let i = 0; i < poiCount; i++) {
             const cell = orderedPerChild[i];
             const child = children[i];
@@ -423,6 +538,7 @@ export function reconcilePlacements(node: WorldNode): boolean {
 
     const n = map.gridSize;
     const allCells = buildCells(n);
+    const perimeterCells = buildPerimeterCells(n);
 
     for (const child of unplaced) {
         // Already-placed count is the stable per-child offset: it advances by one for
@@ -432,18 +548,35 @@ export function reconcilePlacements(node: WorldNode): boolean {
         const subSeed = ((map.layoutSeed >>> 0) + alreadyPlaced) >>> 0;
         const prng = mulberry32(subSeed);
 
-        // Deterministic empty-cell selection: seeded-shuffle a fresh copy of the full
+        // Honor custom placement: an 'edge' child prefers a free perimeter tile so it keeps
+        // framing the map (coasts stay on the continent's rim). If every perimeter cell is
+        // taken it falls back to the full-grid pool rather than going unplaced.
+        const isEdge = getMapPlacement(child.type) === 'edge';
+
+        // Deterministic empty-cell selection: seeded-shuffle a fresh copy of the candidate
         // cell list, then take the first currently-unoccupied cell. Same (seed, offset,
         // occupancy) always yields the same tile.
-        const candidates = allCells.slice();
-        seededShuffle(candidates, prng);
-
         let chosen: Cell | undefined;
-        for (const cell of candidates) {
-            const key = `${cell.col},${cell.row}`;
-            if (!occupied.has(key)) {
-                chosen = cell;
-                break;
+        if (isEdge) {
+            const ring = perimeterCells.slice();
+            seededShuffle(ring, prng);
+            for (const cell of ring) {
+                if (!occupied.has(`${cell.col},${cell.row}`)) {
+                    chosen = cell;
+                    break;
+                }
+            }
+        }
+
+        if (!chosen) {
+            const candidates = allCells.slice();
+            seededShuffle(candidates, prng);
+            for (const cell of candidates) {
+                const key = `${cell.col},${cell.row}`;
+                if (!occupied.has(key)) {
+                    chosen = cell;
+                    break;
+                }
             }
         }
 
