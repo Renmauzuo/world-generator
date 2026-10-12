@@ -378,8 +378,16 @@ h2 {
 .map-mini-cell {
     // Grandchild color swatches get an inline background-color; empty kinds use these.
     &--terrain { background-color: #d8e4c8; }
-    &--void { background-color: #e8e8e8; opacity: 0.5; }
+    // Void preview cells are surrounding water (set inline), matching the full grid — no fade.
+    &--void { background-color: #2a6fb0; }
+    // Depth-2 preview: a map-capable grandchild cell hosts its OWN mini-grid (its sub-regions)
+    // instead of a flat swatch. Position it relative so the absolutely-positioned nested grid
+    // fills the cell; the cell's inline color still shows between the deeper tiles.
+    &--nested { position: relative; }
 }
+
+// Nested mini-grids (depth ≥ 2) sit inside a parent mini-cell. The shared `.map-mini-grid` rule
+// already makes them `position: absolute; inset: 0`, so they fill the hosting cell.
 
 // When a child tile hosts a mini-grid, lift its label above the preview for legibility.
 .map-tile--has-mini .map-tile-label {
@@ -394,12 +402,106 @@ h2 {
     background-color: #d8e4c8;
 }
 
-// Void tile — square-completion padding, outside the region's representable area. renderGrid
-// sets the background inline to the node's own mapColor; the opacity keeps it visually recessed
-// so it still reads as "not part of the content" while sharing the type's hue.
+// Void tile — square-completion padding outside the region's representable area. renderGrid
+// paints it inline with the surrounding-water color (VOID_WATER_COLOR) so the gaps between a
+// continent's regions (or a planet's landmasses) read as the sea around them. The fallback
+// here only applies if no inline color is set. No opacity fade: the water should read as solid.
 .map-tile--void {
-    background-color: #e8e8e8;
-    opacity: 0.5;
+    background-color: #2a6fb0;
+}
+
+// ─── Diagram layout (mapLayout: 'diagram') ───────────────────────────────────────────────
+// High-level containers (material planes, outer planes, planar layers) present their children
+// as a non-spatial "menu" of shaded globe/discs — a solar-system-style diagram — rather than
+// the cartographic N×N grid. renderDiagram adds `.map-modal-body--diagram` to the body, which
+// overrides the grid layout: a centered, wrapping flex cluster with no forced square aspect.
+#map-modal-body.map-modal-body--diagram {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    gap: 24px;
+    aspect-ratio: auto;
+    // A roomy field for the discs to float in; the backdrop reads as the void of space.
+    width: min(80vh, 80vw);
+    padding: 24px;
+    background: radial-gradient(circle at 50% 40%, #1b2436 0%, #0b0f17 100%);
+    border: 1px solid #0b0f17;
+    overflow: auto;
+}
+
+// A single diagram child: a circular disc previewing the child's map. Reuses the `.map-tile`
+// contract (so the shared click/dblclick handlers resolve it) but overrides the square-tile
+// framing with a round, free-floating disc. The flat `mapColor` tint (set inline) is the
+// fallback fill; a map-capable child embeds a `.map-mini-grid` miniature of its own map, clipped
+// to the circle, so the sphere shows the child's actual geography. `overflow: visible` so the
+// caption can sit below the circle (the mini-grid clips itself — see below).
+.map-diagram-disc {
+    flex: 0 0 auto;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    overflow: visible;
+    background-color: #6b7a8f; // fallback; overridden inline by mapColor()
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    // Lay the label out beneath the disc rather than centered over it.
+    flex-direction: column;
+    justify-content: flex-end;
+
+    // Embedded map miniature: clip ONLY the top-level (globe) mini-grid into the disc's circle.
+    // Scoped to the direct child (`>`) so depth-2 nested mini-grids inside continent/region cells
+    // stay square — the circular clip belongs to the sphere, not to its interior tiles.
+    > .map-mini-grid {
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .map-tile-label {
+        // Caption below the globe, legible against the dark space backdrop.
+        margin-top: 104px; // push below the 96px circle (+ a little gap)
+        position: absolute;
+        white-space: nowrap;
+        color: #e8edf5;
+        font-size: 0.8em;
+        text-shadow: 0 1px 2px #000;
+    }
+
+    // Drillable discs get a zoom cursor (the grid's corner-fold affordance is square-specific,
+    // so the cursor alone signals "openable" here).
+    &.map-tile--drillable {
+        cursor: zoom-in;
+
+        // Suppress the square corner-fold affordance from `.map-tile--drillable::after`: a
+        // dog-ear looks wrong on a round disc. The zoom cursor alone signals "openable" here.
+        // (On a planet disc the globe-skin `::after` already overrides this; this also clears
+        // the fold on non-globe diagram discs like planar layers.)
+        &::after {
+            content: none;
+        }
+    }
+}
+
+// Globe skin for planet children: a spherical-shading overlay drawn ON TOP of the embedded
+// mini-map via `::before` — a bright lit highlight fading to a shaded limb — so the planet's
+// geography (the mini-grid) shows through while reading as a curved sphere. Uses `::before`
+// (not `::after`) so it is independent of the drillable corner-fold `::after`, which diagram
+// discs suppress. Clipped to the circle and non-interactive.
+.map-diagram-disc--globe::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    z-index: 1; // above the mini-grid (z-index 0), below the label
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 40%),
+        radial-gradient(circle at 70% 75%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 62%);
+}
+
+// Keep the caption above both the mini-map and the globe overlay.
+.map-diagram-disc .map-tile-label {
+    z-index: 2;
 }
 
 label {

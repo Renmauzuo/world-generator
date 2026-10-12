@@ -1,8 +1,10 @@
 import type { MapPlacement, NodeMap, ObjectTypeTemplate, WorldNode } from './types';
 import {
+    assignChildRef,
     classifyTile,
     generateMap,
     getEmptinessRatio,
+    getMapLayout,
     isMapCapable,
     reconcilePlacements,
     resizeGrid,
@@ -196,9 +198,15 @@ function resolveTileChild(tile: HTMLElement): WorldNode | undefined {
  * and the drag-ghost label lookup.
  */
 function resolveChildByRef(node: WorldNode | undefined, childRef: string): WorldNode | undefined {
-    const map = node?.map;
-    if (!node || !map) {
+    if (!node) {
         return undefined;
+    }
+    const map = node.map;
+    if (!map) {
+        // Diagram-layout node: no Node_Map/placements. Discs carry the child's own `mapRef`
+        // (stamped at render time) as their data-child-ref, so resolve by matching it directly
+        // against the live children. Lets the shared click/dblclick handlers work unchanged.
+        return node.children?.find((child) => child.mapRef === childRef);
     }
     const placement = map.placements.find((p) => p.childRef === childRef);
     if (!placement) {
@@ -226,6 +234,15 @@ export const DEFAULT_MAP_COLOR = '#9e9e9e';
 
 /** @deprecated Alias retained for existing imports; use DEFAULT_MAP_COLOR. */
 export const DEFAULT_MINI_MAP_COLOR = DEFAULT_MAP_COLOR;
+
+/**
+ * Fill color for Void tiles — the empty square-completion cells on a continent-like
+ * (emptiness ratio 0) map. Rather than fading the node's own color, Void cells are
+ * painted as surrounding water so the gaps between a continent's regions (or a planet's
+ * landmasses) read as the sea around them. Matches the `sea` type color (`#2a6fb0`) so
+ * the surrounding water reads consistently with mapped seas.
+ */
+export const VOID_WATER_COLOR = '#2a6fb0';
 
 /**
  * Maps a recognized terrain tag (reusing the shared `tags` vocabulary) to a
@@ -407,22 +424,48 @@ export function applyDrop(
  *    the corner-fold affordance (and a zoom cursor) marking the tile as openable.
  */
 /**
- * Build a non-interactive miniature of `node`'s own Node_Map, for embedding inside a child
- * tile on the parent map (nested preview). Strictly ONE level deep: grandchildren are drawn
- * as flat `mapColor` swatches only — a grandchild that is itself map-capable is NOT expanded
- * into a further nested grid, so recursion always terminates at depth 1.
+ * Options for `buildMiniGrid`'s nested preview.
+ */
+interface MiniGridOptions {
+    /**
+     * How many levels of nesting the preview may draw. `1` (default) is the classic flat
+     * preview: grandchildren are flat `mapColor` swatches and recursion stops. `2` lets a
+     * map-capable grandchild cell render its OWN mini-grid inside it (great-grandchildren are
+     * then flat), so e.g. a planet globe shows each continent textured with its regions rather
+     * than a solid block. Always terminates: each recursion decrements depth, and a cell only
+     * nests while `depth > 1`.
+     */
+    depth?: number;
+    /**
+     * When true, a map-capable grandchild that has NO `node.map` yet gets one generated on
+     * demand (via `generateMap`) so there is sub-geography to draw at depth ≥ 2. The flag is
+     * passed by reference through `generated` so the caller can `markUnsaved` once if any map
+     * was created. When false (the default — e.g. the full-grid tile preview), missing maps are
+     * simply drawn flat and nothing is generated.
+     */
+    generateMissing?: boolean;
+    /** Out-param: set to true if `generateMissing` created at least one map during this build. */
+    generated?: { value: boolean };
+}
+
+/**
+ * Build a non-interactive miniature of `node`'s own Node_Map, for embedding inside a child tile
+ * on a parent map (nested preview). By default ONE level deep (grandchildren are flat `mapColor`
+ * swatches); pass `depth: 2` to let map-capable grandchildren render their own mini-grid one
+ * level further (bounded — see `MiniGridOptions.depth`).
  *
- * Returns a `.map-mini-grid` element laying out the child's N×N tiles (coloring child cells by
+ * Returns a `.map-mini-grid` element laying out the node's N×N tiles (coloring child cells by
  * type, terrain/void cells by kind), or `undefined` when the node has no map. The element
  * carries no data-child-ref / labels / listeners — it is purely visual; all interaction stays
  * on the hosting parent tile.
  */
-function buildMiniGrid(node: WorldNode): HTMLElement | undefined {
+function buildMiniGrid(node: WorldNode, options: MiniGridOptions = {}): HTMLElement | undefined {
     const map = node?.map;
     if (!map) {
         return undefined;
     }
 
+    const depth = options.depth ?? 1;
     const n = map.gridSize;
     const ratio = getEmptinessRatio(node.type);
     // The child's own color, used for its empty (terrain/void) preview cells — same rule as
@@ -447,15 +490,39 @@ function buildMiniGrid(node: WorldNode): HTMLElement | undefined {
             const child = placement ? resolvePlacementChild(node, placement) : undefined;
 
             if (placement && child) {
-                // Flat color swatch for the grandchild — one level deep, never nested further.
                 cell.classList.add('map-mini-cell--child');
+                // The grandchild's base color (shows through / behind a deeper nested preview).
                 cell.style.backgroundColor = mapColor(child);
+
+                // Depth ≥ 2: a map-capable grandchild can show its OWN regions one level deeper,
+                // so the preview isn't just a solid block. Optionally generate its map on demand.
+                if (depth > 1 && isMapCapable(child.type) && getMapLayout(child.type) !== 'diagram') {
+                    if (!child.map && options.generateMissing) {
+                        child.map = generateMap(child);
+                        if (options.generated) {
+                            options.generated.value = true;
+                        }
+                    }
+                    if (child.map) {
+                        // Recurse one level shallower; great-grandchildren terminate flat.
+                        const nested = buildMiniGrid(child, {
+                            depth: depth - 1,
+                            generateMissing: options.generateMissing,
+                            generated: options.generated,
+                        });
+                        if (nested) {
+                            cell.classList.add('map-mini-cell--nested');
+                            cell.appendChild(nested);
+                        }
+                    }
+                }
             } else {
                 const kind = classifyTile(map, col, row, ratio);
                 const emptyKind = kind === 'child' ? (ratio > 0 ? 'terrain' : 'void') : kind;
                 cell.classList.add(`map-mini-cell--${emptyKind}`);
-                // Empty preview cells use the node's own color, matching the full-grid rule.
-                cell.style.backgroundColor = ownColor;
+                // Empty preview cells match the full-grid rule: terrain uses the node's own
+                // color, void cells are surrounding water.
+                cell.style.backgroundColor = emptyKind === 'void' ? VOID_WATER_COLOR : ownColor;
             }
 
             grid.appendChild(cell);
@@ -545,9 +612,10 @@ export function renderGrid(node: WorldNode): void {
                 // here (terrain/void per ratio) to satisfy Req 8.7.
                 const emptyKind = kind === 'child' ? (ratio > 0 ? 'terrain' : 'void') : kind;
                 tile.classList.add(`map-tile--${emptyKind}`);
-                // Fill the type's own empty tiles with its own color so a mapped node matches
-                // how it appears as a tile on its parent (void tiles are faded via CSS opacity).
-                tile.style.backgroundColor = ownColor;
+                // Terrain fill uses the type's own color so a mapped node matches how it appears
+                // as a tile on its parent. Void cells (continent-like gaps) are painted as
+                // surrounding water instead, so the gaps read as the sea around the landmass.
+                tile.style.backgroundColor = emptyKind === 'void' ? VOID_WATER_COLOR : ownColor;
             }
 
             body.appendChild(tile);
@@ -559,16 +627,134 @@ export function renderGrid(node: WorldNode): void {
 }
 
 /**
- * Perform a double-click Drill_Down into a child's own Node_Map, swapping the single modal's
- * content in place (no stacking — Req 11.8). Behavior per Req 11.5/11.6:
- *  - Map_Capable child WITH a map: `openMapModal(child)` re-runs `reconcilePlacements` (which
- *    auto-places the child's Unplaced_Children and marks unsaved if it changed) and renders
- *    the child's map into the same `#map-modal`.
- *  - Map_Capable child WITHOUT a map: generate one on demand from the child's current children,
- *    attach it, mark the world unsaved, then drill down via `openMapModal(child)`.
+ * Render a diagram-layout node (a `mapLayout: 'diagram'` type) into `#map-modal-body`: a
+ * non-spatial "menu" of the node's children as a centered, wrapping cluster of shaded globe/
+ * discs — think a solar-system diagram. Unlike `renderGrid` there is NO `node.map`, no seeded
+ * placement, no terrain/void fill, and no persistence: the layout is purely a function of the
+ * current `node.children` and is rebuilt fresh on every open.
+ *
+ * Each child becomes a `.map-tile.map-diagram-disc` carrying the SAME markup contract as a grid
+ * child tile — a `data-child-ref` (the child's own stable `mapRef`, stamped here via
+ * `assignChildRef`), a `.map-tile-label` with `poiLabel`, and `.map-tile--drillable` when the
+ * child is itself map-capable. Because the contract matches, the shared delegated click/dblclick
+ * handlers resolve and drill these discs with no special-casing (drag-to-reposition naturally
+ * no-ops: there is no `node.map` on a diagram node).
+ *
+ * The disc previews the child's actual geography rather than a flat tint: for a GRID-layout
+ * map-capable child (e.g. a planet) its own Node_Map is generated on demand (if absent) and a
+ * one-level `buildMiniGrid` miniature is embedded, clipped to the circle, so the sphere shows
+ * the child's continents/oceans. Planets additionally get the `.map-diagram-disc--globe` skin
+ * (a spherical-shading gradient overlaid on the mini-map). Children with no previewable grid map
+ * (DIAGRAM-layout children like planar layers, or non-map-capable children) fall back to the flat
+ * `mapColor` tint. Generating a planet's map persists real grid data, so we markUnsaved once if
+ * any map was created here.
+ *
+ * Safe under jsdom (pure DOM output); no-op when `#map-modal-body` is absent.
+ */
+export function renderDiagram(node: WorldNode): void {
+    const body = document.getElementById('map-modal-body');
+    if (!body) {
+        return;
+    }
+
+    body.innerHTML = '';
+    // Diagram presentation: a wrapping flex cluster, not the N×N square grid. The modifier
+    // flips the body's layout in CSS and the --map-grid-size custom property is irrelevant here.
+    body.classList.add('map-modal-body--diagram');
+
+    const children = node?.children ?? [];
+    // Shared out-param: buildMiniGrid flips this if it generates any map on demand (depth-2
+    // previews may create the grandchildren's maps too), so we markUnsaved once at the end.
+    const generated = { value: false };
+
+    for (const child of children) {
+        const disc = document.createElement('div');
+        // Reuse the grid tile contract so the shared interaction handlers apply unchanged.
+        disc.className = 'map-tile map-diagram-disc';
+        // Stamp/reuse the child's stable ref so resolveChildByRef can match it against children.
+        disc.dataset.childRef = assignChildRef(child);
+        // Flat tint fallback (shows through / behind the mini-map, and is the whole fill when
+        // there's no previewable grid map).
+        disc.style.backgroundColor = mapColor(child);
+
+        const capable = isMapCapable(child.type);
+        // A grid-layout map-capable child can show a miniature of its own map. A diagram-layout
+        // child (e.g. a planar layer) has no grid map to preview, so it stays a flat disc.
+        const previewable = capable && getMapLayout(child.type) !== 'diagram';
+
+        if (previewable) {
+            if (!child.map) {
+                // Generate the child's real grid map on demand so the sphere has geography to
+                // show (same map the user gets on drill-down). Persist it: markUnsaved below.
+                child.map = generateMap(child);
+                generated.value = true;
+            }
+            // Depth 2 so each continent/region tile is itself textured with its sub-regions
+            // rather than a flat block, giving the globe real detail. generateMissing fills in
+            // the grandchildren's maps on demand so there's something to draw at the deeper level.
+            const mini = buildMiniGrid(child, { depth: 2, generateMissing: true, generated });
+            if (mini) {
+                disc.classList.add('map-diagram-disc--has-mini');
+                disc.appendChild(mini);
+            }
+            // Planets read as globes: the spherical-shading overlay sits on top of the mini-map.
+            if (child.type === 'planet') {
+                disc.classList.add('map-diagram-disc--globe');
+            }
+        }
+
+        // Map-capable children can be drilled into — same affordance (zoom cursor) as the grid.
+        if (capable) {
+            disc.classList.add('map-tile--drillable');
+        }
+
+        const label = document.createElement('span');
+        label.className = 'map-tile-label';
+        label.textContent = poiLabel(child);
+        disc.appendChild(label);
+
+        body.appendChild(disc);
+    }
+
+    if (generated.value) {
+        markUnsavedRef();
+    }
+
+    // Keep label visibility in sync with the toolbar toggle across re-renders.
+    syncLabelVisibility();
+}
+
+/**
+ * Dispatch rendering of the open node's children by its type's map layout: `renderDiagram`
+ * for a `'diagram'` type, else the cartographic `renderGrid`. Also clears the diagram body
+ * modifier on the grid path so a modal reused across a diagram→grid drill-down resets cleanly.
+ */
+export function renderMapBody(node: WorldNode): void {
+    if (getMapLayout(node.type) === 'diagram') {
+        renderDiagram(node);
+        return;
+    }
+    // Grid path: ensure any diagram layout modifier from a prior node is cleared.
+    const body = document.getElementById('map-modal-body');
+    body?.classList.remove('map-modal-body--diagram');
+    renderGrid(node);
+}
+
+/**
+ * Perform a double-click Drill_Down into a child's own map/diagram, swapping the single modal's
+ * content in place (no stacking — Req 11.8). Behavior:
+ *  - Diagram-layout child: open directly — a diagram has no persisted `node.map` to generate
+ *    (its layout is rebuilt fresh on open), so skip map generation entirely.
+ *  - Grid child WITH a map: `openMapModal(child)` re-runs `reconcilePlacements` and renders it.
+ *  - Grid child WITHOUT a map: generate one on demand, mark unsaved, then open.
  * The caller guarantees `isMapCapable(child.type)` is true before invoking this.
  */
 function drillDownInto(child: WorldNode): void {
+    if (getMapLayout(child.type) === 'diagram') {
+        // Diagram children carry no persistent map; openMapModal rebuilds the diagram fresh.
+        openMapModal(child);
+        return;
+    }
     if (!child.map) {
         // Generate a Node_Map on demand from the child's children at double-click time (Req 11.6).
         child.map = generateMap(child);
@@ -662,12 +848,25 @@ function syncGenerateButton(node: WorldNode | undefined): void {
  */
 function handleGenerateChildren(): void {
     const node = currentMapNode;
-    if (!node || !node.map || !canGenerateChildren(node)) {
+    if (!node || !canGenerateChildren(node)) {
+        return;
+    }
+
+    const diagram = getMapLayout(node.type) === 'diagram';
+    // Grid nodes need an existing map to reconcile into; diagram nodes carry none.
+    if (!diagram && !node.map) {
         return;
     }
 
     // Reuse the host generator so the main tree stays in sync (it also calls markUnsaved).
     generateChildrenRef(node);
+
+    if (diagram) {
+        // Diagram layout: no map to reconcile — just rebuild the disc cluster from the new
+        // children (markUnsaved was already called by the host generator).
+        renderDiagram(node);
+        return;
+    }
 
     // Fold the new children into the existing map, auto-placing Unplaced_Children while leaving
     // user-positioned ones put. markUnsaved again only if reconciliation actually changed the map.
@@ -677,6 +876,9 @@ function handleGenerateChildren(): void {
     }
 
     renderGrid(node);
+    // Reconciliation may have grown the grid to fit the new children; keep the resize control
+    // showing the authoritative N (it isn't re-synced by renderGrid). (Req 10.1)
+    syncGridSizeInput(node);
 }
 
 /**
@@ -859,10 +1061,24 @@ function wireBodyInteractions(): void {
  */
 function syncGridSizeInput(node: WorldNode): void {
     const input = document.getElementById('map-grid-size') as HTMLInputElement | null;
-    if (!input || !node?.map) {
+    if (!input) {
         return;
     }
-    input.value = String(node.map.gridSize);
+
+    // The grid-size control is meaningless for a diagram layout (no N×N grid). Hide the input,
+    // its label, and the preceding toolbar line-break; show them again for grid layouts.
+    const gridLayout = !!node && getMapLayout(node.type) !== 'diagram';
+    const label = document.querySelector('label[for="map-grid-size"]') as HTMLElement | null;
+    const brk = input.closest('.map-modal-toolbar')?.querySelector('.map-toolbar-break') as HTMLElement | null;
+    const display = gridLayout ? '' : 'none';
+    input.style.display = display;
+    if (label) label.style.display = display;
+    if (brk) brk.style.display = display;
+
+    // Only grid layouts carry an authoritative gridSize to reflect.
+    if (gridLayout && node?.map) {
+        input.value = String(node.map.gridSize);
+    }
 }
 
 /**
@@ -1015,22 +1231,35 @@ export function initMapModal(): void {
  * work whether or not the host called `initMapModal()`. Vanilla DOM — jsdom-testable.
  */
 export function openMapModal(node: WorldNode): void {
-    // Guard: caller ensures a map exists / generates one before opening.
-    if (!node?.map) {
+    if (!node) {
         return;
     }
 
-    const changed = reconcilePlacements(node);
-    if (changed) {
-        markUnsavedRef();
+    const diagram = getMapLayout(node.type) === 'diagram';
+
+    if (diagram) {
+        // Diagram layout: no persisted Node_Map, no reconciliation — the layout is rebuilt
+        // fresh from the current children on every open. (Only valid for a diagram-capable type.)
+        if (!isMapCapable(node.type)) {
+            return;
+        }
+    } else {
+        // Grid layout — caller ensures a map exists / generates one before opening.
+        if (!node.map) {
+            return;
+        }
+        const changed = reconcilePlacements(node);
+        if (changed) {
+            markUnsavedRef();
+        }
     }
 
-    renderGrid(node);
+    renderMapBody(node);
 
     currentMapNode = node;
 
     // Reflect the current grid side length in the resize control so it always shows the
-    // authoritative N (also covers drill-down, which reuses this function). (Req 10.1)
+    // authoritative N (grid only; the diagram has no grid-size control). (Req 10.1)
     syncGridSizeInput(node);
 
     // Show the "Show parent" button only when there's a map-capable ancestor to go up to.

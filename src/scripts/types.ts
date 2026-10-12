@@ -85,6 +85,22 @@ export interface ObjectTypeTemplate {
    */
   mapCapable?: boolean;
   /**
+   * How a map-capable node presents its children in the modal. Defaults to `'grid'`.
+   *
+   *  - `'grid'` — the cartographic N×N tile grid (continents, biomes, planar localities):
+   *    seeded placement, terrain/void fill, drag-to-reposition, a persisted `node.map`.
+   *  - `'diagram'` — a non-spatial "menu" of the node's children laid out as a cluster of
+   *    shaded globe/discs (think a solar-system diagram), for high-level containers whose
+   *    children have no meaningful relative geography (a material plane's planets, an outer
+   *    plane's layers). The layout is NOT spatially meaningful and NOT persisted — it is
+   *    rebuilt fresh each time the modal opens, so a diagram node carries no `node.map`.
+   *    Children still select/drill exactly like grid tiles (click/double-click a map-capable
+   *    child to drill into it); there is no drag-to-reposition and no grid-size control.
+   *
+   * Only meaningful when `mapCapable` is true. Ignored otherwise.
+   */
+  mapLayout?: 'grid' | 'diagram';
+  /**
    * Ratio of generic empty space (Terrain_Tiles) to child Points_Of_Interest for a
    * map-capable type. 0 = continent-like (no terrain between children; non-child
    * tiles are square-completion Void only). > 0 = taiga-like (generic terrain fills

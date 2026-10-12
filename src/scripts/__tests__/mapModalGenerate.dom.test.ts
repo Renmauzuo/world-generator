@@ -159,6 +159,24 @@ describe('mapModal "Generate Children" button (jsdom)', () => {
     expect(markUnsavedSpy).toHaveBeenCalled();
   });
 
+  it('updates the grid-size input when generation grows the grid', () => {
+    // Empty map-capable node: generateMap yields a 1x1 grid (zero children).
+    const node: WorldNode = { type: CHILD_MAP_CAPABLE, name: 'Deepwood', children: [] };
+    generateMap(node);
+    openMapModal(node);
+
+    const input = document.getElementById('map-grid-size') as HTMLInputElement;
+    // On open the input reflects the current (1x1) grid.
+    expect(node.map!.gridSize).toBe(1);
+    expect(input.value).toBe('1');
+
+    generateBtn().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Reconciliation grew the grid to fit the 3 generated children; the input must follow.
+    expect(node.map!.gridSize).toBeGreaterThan(1);
+    expect(input.value).toBe(String(node.map!.gridSize));
+  });
+
   it('preserves existing user-positioned placements when generating more children', () => {
     const existing: WorldNode = { type: CHILD_POINT, name: 'Pinned' };
     const node: WorldNode = { type: PARENT_TYPE, name: 'Region', children: [existing] };

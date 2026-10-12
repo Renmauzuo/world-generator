@@ -6,7 +6,7 @@ import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize }
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
 import { getToggleableSources, isSourceEnabled, setSourceEnabled, isTypeSourceEnabled } from './sources';
-import { isMapCapable, generateMap } from './mapGenerator';
+import { isMapCapable, generateMap, getMapLayout } from './mapGenerator';
 import {
     openMapModal,
     initMapModal,
@@ -730,10 +730,14 @@ function showInfoForNode(node: WorldNode): void {
     }
 
     // ─── Node Map controls ───
-    // Only map-capable types get a control. Before a map exists, offer "Generate Map";
-    // once a map exists, offer "Open Map" instead (never both). Non-capable types get neither. (Req 1.3, 2.1, 2.3, 6.1)
+    // Only map-capable types get a control. (Req 1.3, 2.1, 2.3, 6.1)
+    //  - Grid layout: before a map exists offer "Generate Map"; once it exists offer "Open Map".
+    //  - Diagram layout: the view is ephemeral (rebuilt fresh each open, no persisted node.map),
+    //    so always offer a single "Open Map" — there is nothing to generate ahead of time.
     if (isMapCapable(node.type)) {
-        if (!node.map) {
+        if (getMapLayout(node.type) === 'diagram') {
+            $('<button class="button-open-map">Open Map</button>').appendTo($info);
+        } else if (!node.map) {
             $('<button class="button-generate-map">Generate Map</button>').appendTo($info);
         } else {
             $('<button class="button-open-map">Open Map</button>').appendTo($info);

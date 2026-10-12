@@ -41,6 +41,16 @@ export function getMapPlacement(type: string): ObjectTypeTemplate['mapPlacement'
 }
 
 /**
+ * Resolve a map-capable type's presentation layout from its template: `'diagram'` for the
+ * non-spatial globe/disc "menu" (material planes, outer planes, planar layers), else `'grid'`
+ * (the default cartographic tile grid). Centralizes the lookup so the modal can branch on it
+ * without importing objectTypes directly. (Diagram layout mode)
+ */
+export function getMapLayout(type: string): 'grid' | 'diagram' {
+    return objectTypesRef[type]?.mapLayout === 'diagram' ? 'diagram' : 'grid';
+}
+
+/**
  * Smallest integer N such that N*N >= poiCount AND the resulting empty count
  * (N*N - poiCount) satisfies the emptiness ratio. For ratio `r`, the required
  * empty budget is `ceil(r * poiCount)`, so:
@@ -214,22 +224,48 @@ function clusterOrder(cells: Cell[], n: number, prng: () => number): Cell[] {
 }
 
 /**
+ * Target maximum number of children in a single contiguous patch. A type-group larger
+ * than this is split across multiple seeded anchors so a dominant type (e.g. a planet's
+ * many oceans) forms a few scattered patches rather than one monolithic blob, while a
+ * small group (<= PATCH_SIZE) stays a single tight cluster exactly as before. Chosen so
+ * typical region counts (2–5 of a type on a continent) stay unsplit, and only genuinely
+ * dominant groups distribute.
+ */
+const PATCH_SIZE = 5;
+
+/**
+ * Number of patches (distinct anchors) a type-group of `size` members should split into:
+ * `ceil(size / PATCH_SIZE)`, capped at `size` (never more anchors than members) and
+ * floored at 1. Pure — the sole knob controlling cluster-vs-distribute. A group of 5
+ * stays 1 patch; 17 oceans become 4 patches.
+ */
+function patchCountFor(size: number): number {
+    if (size <= 0) return 0;
+    return Math.max(1, Math.min(size, Math.ceil(size / PATCH_SIZE)));
+}
+
+/**
  * Type-aware grouped placement for the "clustered" layout. Children of the same
  * `type` are laid down together so like-with-like regions emerge (all the tundra
  * in one part of the continent, etc.) instead of being scattered across the grid.
  *
- * Deterministic in the seeded `prng` stream (fixed draw order):
- *  1. Partition children into type-groups, preserving the first-appearance order of
- *     the groups and of children within each group (seed-independent).
- *  2. For each group in turn, draw a seeded anchor cell, order the STILL-FREE cells
- *     by distance from it (same squared-distance + seeded tie-break as clusterOrder),
- *     and take the nearest ones for that group.
+ * Each type-group is split into `patchCountFor(size)` PATCHES, each with its own seeded
+ * anchor, so a dominant type distributes into several contiguous clusters instead of one
+ * monolith (the planet-ocean blob). Small groups (<= PATCH_SIZE) resolve to a single
+ * patch — identical to the previous single-anchor behavior.
  *
- * Groups compete for a shrinking free-cell pool, so groups whose anchors land near
- * each other bleed into one another at their edges (organic region borders) while
- * each type stays mostly contiguous. Returns one Cell per child in the ORIGINAL
- * children-array order, so the caller zips placements[i] <-> children[i] exactly as
- * the spread path does.
+ * Deterministic in the seeded `prng` stream (fixed draw order):
+ *  1. Partition children into type-groups, preserving the first-appearance order of the
+ *     groups and of children within each group (seed-independent).
+ *  2. For each group in turn: split its members into `p` near-equal patches (first `m % p`
+ *     patches get one extra member), then for each patch draw a seeded anchor cell, order
+ *     the STILL-FREE cells by distance from it (squared-distance + seeded tie-break), and
+ *     take the nearest ones for that patch.
+ *
+ * Patches compete for a shrinking free-cell pool, so patches whose anchors land near each
+ * other bleed together at their edges (organic borders) while each stays mostly contiguous.
+ * Returns one Cell per child in the ORIGINAL children-array order, so the caller zips
+ * placements[i] <-> children[i] exactly as the spread path does.
  */
 function groupedClusterCells(
     children: WorldNode[],
@@ -258,29 +294,45 @@ function groupedClusterCells(
 
     for (const type of groupOrder) {
         const indices = groups.get(type)!;
-        // Seeded anchor for this group (two draws — fixed order = determinism).
-        const anchorCol = Math.floor(prng() * n);
-        const anchorRow = Math.floor(prng() * n);
+        const m = indices.length;
 
-        // Order currently-free cells by distance from the anchor, seeded tie-break.
-        const keyed = free
-            .filter((c) => freeKeys.has(`${c.col},${c.row}`))
-            .map((cell) => ({ cell, key: prng() }));
-        keyed.sort((a, b) => {
-            const da =
-                (a.cell.col - anchorCol) * (a.cell.col - anchorCol) +
-                (a.cell.row - anchorRow) * (a.cell.row - anchorRow);
-            const db =
-                (b.cell.col - anchorCol) * (b.cell.col - anchorCol) +
-                (b.cell.row - anchorRow) * (b.cell.row - anchorRow);
-            if (da !== db) return da - db;
-            return a.key - b.key;
-        });
+        // Split this group's members into near-equal patches. The first `m % p` patches
+        // get `ceil(m/p)` members, the rest get `floor(m/p)`, so patch sizes differ by at
+        // most one and the member order within the group is preserved.
+        const p = patchCountFor(m);
+        const base = Math.floor(m / p);
+        const extra = m % p;
 
-        for (let k = 0; k < indices.length; k++) {
-            const cell = keyed[k].cell;
-            result[indices[k]] = cell;
-            freeKeys.delete(`${cell.col},${cell.row}`);
+        let offset = 0;
+        for (let patch = 0; patch < p; patch++) {
+            const patchSize = base + (patch < extra ? 1 : 0);
+            const patchIndices = indices.slice(offset, offset + patchSize);
+            offset += patchSize;
+
+            // Seeded anchor for THIS patch (two draws — fixed order = determinism).
+            const anchorCol = Math.floor(prng() * n);
+            const anchorRow = Math.floor(prng() * n);
+
+            // Order currently-free cells by distance from the anchor, seeded tie-break.
+            const keyed = free
+                .filter((c) => freeKeys.has(`${c.col},${c.row}`))
+                .map((cell) => ({ cell, key: prng() }));
+            keyed.sort((a, b) => {
+                const da =
+                    (a.cell.col - anchorCol) * (a.cell.col - anchorCol) +
+                    (a.cell.row - anchorRow) * (a.cell.row - anchorRow);
+                const db =
+                    (b.cell.col - anchorCol) * (b.cell.col - anchorCol) +
+                    (b.cell.row - anchorRow) * (b.cell.row - anchorRow);
+                if (da !== db) return da - db;
+                return a.key - b.key;
+            });
+
+            for (let k = 0; k < patchIndices.length; k++) {
+                const cell = keyed[k].cell;
+                result[patchIndices[k]] = cell;
+                freeKeys.delete(`${cell.col},${cell.row}`);
+            }
         }
     }
 

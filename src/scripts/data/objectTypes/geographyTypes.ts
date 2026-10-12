@@ -110,6 +110,11 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
     ocean: {
         typeName: "Ocean",
         tags: ['water'],
+        mapColor: '#1f5a8a',
+        // Node Maps: open-water — generic deep-ocean terrain fills between the
+        // archipelagos, islands, trenches, and reefs scattered across it.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ["geography"],
         children: [
             { type: 'archipelago', min: 0, max: 3 },
@@ -172,6 +177,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: 'Sea',
         tags: ['region', 'water'],
         mapColor: '#2a6fb0',
+        // Node Maps: open-water — generic sea terrain fills between the islands,
+        // reefs, and wrecks that dot it.
+        mapCapable: true,
+        emptinessRatio: 2,
         children: [
             { type: 'island', min: 0, max: 3 },
             { type: 'reef', min: 0, max: 3, conditions: [{ attribute: 'temperature', value: 'Warm' }] },
@@ -190,6 +199,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: 'Tundra',
         tags: ['region', 'cold'],
         mapColor: '#dfeef5',
+        // Node Maps: open-biome — generic frozen tundra terrain fills between the
+        // scattered herds, lairs, and patrols.
+        mapCapable: true,
+        emptinessRatio: 2,
         children: [
             { type: 'mammothBull', min: 2, max: 5 },
             { type: 'mammothHerd', min: 1, max: 3 },
@@ -207,6 +220,11 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Rainforest",
         tags: ['region', 'forest'],
         mapColor: '#1b5e20',
+        // Node Maps: jungle-like — dense generic rainforest terrain fills between
+        // the scattered groves, clearings, and lairs. Same taiga-like fill as the
+        // coniferous-forest pilot.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -252,6 +270,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Deciduous Forest",
         tags: ['region', 'forest'],
         mapColor: '#4caf50',
+        // Node Maps: woodland-like — generic deciduous-forest terrain fills between
+        // children, matching the coniferous-forest pilot.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         nameGenerator: forestNameGenerator,
         children: [
@@ -340,6 +362,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Plains",
         tags: ['region', 'plains'],
         mapColor: '#9acd32',
+        // Node Maps: open-biome — rolling grassland terrain fills between the
+        // settlements, herds, and wilderness groups.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         nameGenerator: plainsNameGenerator,
         children: [
@@ -384,6 +410,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Hills",
         tags: ['region', 'hills'],
         mapColor: '#8fae5d',
+        // Node Maps: open-biome — rolling hill terrain fills between the caves,
+        // dens, and settlements.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         children: [
@@ -415,6 +445,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Swamp",
         tags: ['region', 'swamp'],
         mapColor: '#4b6b43',
+        // Node Maps: open-biome — murky bog terrain fills between the dens,
+        // haunts, and crypts.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: swampNameGenerator,
@@ -440,6 +474,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Desert",
         tags: ['region', 'desert'],
         mapColor: '#e0c068',
+        // Node Maps: open-biome — vast sand/dune terrain fills between the sparse
+        // caravans, lairs, and nests. A higher ratio keeps the desert feeling empty.
+        mapCapable: true,
+        emptinessRatio: 3,
         inheritAttributes: ["temperature"],
         nameGenerator: desertNameGenerator,
         children: [
@@ -460,6 +498,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Savanna",
         tags: ['region', 'plains'],
         mapColor: '#c7b037',
+        // Node Maps: open-biome — dry grassland terrain fills between the herds,
+        // prides, and packs.
+        mapCapable: true,
+        emptinessRatio: 2,
         categories: ['geography'],
         inheritAttributes: ["temperature"],
         nameGenerator: savannaNameGenerator,
@@ -489,6 +531,11 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         tags: ['region', 'water'],
         mapColor: '#6ca6c9',
         mapPlacement: 'edge',
+        // Node Maps: shoreline — light generic terrain (shallows/shore) fills between
+        // the beaches, cliffs, and coastal settlements. Lower ratio than open biomes
+        // since a coast is a thin, busy strip rather than a vast expanse.
+        mapCapable: true,
+        emptinessRatio: 1,
         categories: ['geography'],
         children: [
             { type: 'beach', min: 1, max: 3 },
@@ -528,6 +575,11 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Mountain Range",
         tags: ['region', 'mountain'],
         mapColor: '#7f8c8d',
+        // Node Maps: composed-of-children — a range IS its peaks and passes, so there
+        // is little generic fill between them. Low ratio keeps a few rocky gaps without
+        // the sprawling emptiness of an open biome.
+        mapCapable: true,
+        emptinessRatio: 1,
         inheritAttributes: ["temperature"],
         nameGenerator: mountainRangeNameGenerator,
         children: [
@@ -597,6 +649,10 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
         typeName: "Forgotten Forest",
         tags: ['region', 'forest'],
         mapColor: '#356b4a',
+        // Node Maps: jungle-like — dense primeval forest terrain fills between the
+        // dinosaurs and fey, matching the other forest biomes.
+        mapCapable: true,
+        emptinessRatio: 2,
         nameGenerator: forgottenBiomeNameGenerator,
         children: [
             { type: 'trexSolitary', min: 0, max: 2 },
