@@ -379,7 +379,7 @@ $(function () {
     });
 
     $('#button-generate-new').on('click', function () {
-        confirmSaved();
+        if (!confirmSaved()) return;
         $('#generation-container').empty();
         createRootNode(($('#starting-node')[0] as HTMLInputElement).value);
         $('#info-panel h2').empty();
@@ -391,7 +391,11 @@ $(function () {
     });
 
     $('#load-saved').on('input', function () {
-        confirmSaved();
+        if (!confirmSaved()) {
+            // Aborted: reset the dropdown so the user stays on their current world
+            ($(this)[0] as HTMLSelectElement).selectedIndex = 0;
+            return;
+        }
         currentSaveName = ($(this)[0] as HTMLInputElement).value;
         createWorldFromJSON(localStorage['world-' + currentSaveName]);
         localStorage['currentWorld'] = stringifyNodes(rootNode);
@@ -400,13 +404,16 @@ $(function () {
     $('#load-preset').on('change', function () {
         const index = ($(this)[0] as HTMLSelectElement).value;
         if (!index) return;
-        confirmSaved();
+        if (!confirmSaved()) {
+            ($(this)[0] as HTMLSelectElement).selectedIndex = 0;
+            return;
+        }
         createWorldFromJSON(JSON.stringify(presets[parseInt(index, 10)].data));
         saved = true;
     });
 
     $('#button-import-root').on('click', function () {
-        confirmSaved();
+        if (!confirmSaved()) return;
         const data = prompt("Please input the JSON for the objects to import:");
         if (data && data !== "") {
             createWorldFromJSON(data);
@@ -1057,17 +1064,22 @@ function initSortable(el: HTMLElement): void {
 
 /* Save/Load Begin */
 
-function confirmSaved(): void {
-    if (!saved) {
-        const shouldSave = confirm('You have unsaved changes. Save this world?');
-        if (shouldSave) {
-            saveWorld();
-        }
+/** Ensures unsaved changes are handled before a destructive action.
+ *  Returns true if it is OK to proceed (saved, or user chose to discard),
+ *  false if the user wants to abort the action. */
+function confirmSaved(): boolean {
+    if (saved) return true;
+    if (confirm('You have unsaved changes. Save this world?')) {
+        if (saveWorld()) return true;
+        // User cancelled the name prompt: don't loop, ask whether to discard instead.
+        return confirm('World was not saved. Discard unsaved changes and continue?');
     }
+    return true;
 }
 
-/** Saves the current world to localStorage. Prompts for a name if this is a new world. */
-function saveWorld(): void {
+/** Saves the current world to localStorage. Prompts for a name if this is a new world.
+ *  Returns false if the user cancelled the name prompt (nothing saved). */
+function saveWorld(): boolean {
     if (currentSaveName.length) {
         // Already has a save name — save over it
         localStorage['world-' + currentSaveName] = stringifyNodes(rootNode);
@@ -1076,7 +1088,9 @@ function saveWorld(): void {
         let saveName: string;
         let valid: boolean;
         do {
-            saveName = prompt(promptMessage) ?? '';
+            const entered = prompt(promptMessage);
+            if (entered === null) return false; // cancelled
+            saveName = entered;
             if (saveName.length === 0) {
                 promptMessage = "Name must not be empty. Please enter a name.";
                 valid = false;
@@ -1093,6 +1107,7 @@ function saveWorld(): void {
         localStorage['world-' + saveName] = stringifyNodes(rootNode);
     }
     saved = true;
+    return true;
 }
 
 /** Converts a node and all its children into a JSON string for save/export.
