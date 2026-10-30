@@ -104,11 +104,25 @@ When adding a new region/biome/planar-locality type, set `mapCapable`/`emptiness
 ### Creature Alignment
 Non-beast creature nodes have an `alignment` attribute (e.g. `'Chaotic Evil'`, `'Lawful Good'`). This is used by name generators to select appropriate titles without maintaining hardcoded type lists. The alignment strings match the planar system format.
 
+### Magic Level
+`magicLevel` (None / Low / Medium / High, defined in `constants.ts`) is a Material Plane–only attribute guiding child generation, like temperature/population density.
+- **Hierarchy:** `materialPlane` seeds it (fresh weighted roll); `geography` types derive it via `magicLevelValue` (attributeGenerators.ts) with variance around the parent (High → mostly High but sometimes lower; Low → occasionally mystical regions). **None is absolute** — a None parent only yields None children. Anything under a node with an `element` (outer planes) resolves to High.
+- **Resolution:** `getMagicLevel(node)` (helpers.ts) walks ancestors for the nearest `magicLevel`, so non-geography nodes (settlements, buildings) are covered too. Undefined (old saves) = no gating.
+- **Which types are magical (`magic.ts`, `applyMagicTiers`)** — inferred at load, in this order: (1) manual: `magic` on the template, else the `magicalTypes` override table in `constants.ts` (`false` = force mundane); (2) creature-backed: base/variant creature type in `magicalCreatureTypes` (undead, fey, fiend, celestial, elemental, dragon, plant, ...) or `dynamicCreature` → `major`; any other `legendary` creature → `minor`; (3) containers (no `categories`): a guaranteed (`min ≥ 1`) magical child makes the container magical (dragon lairs), otherwise it's magical when more than half its child entries are. Children that have a `mundaneVariant` count as mundane for this (so temples aren't magical because of their priests). The override table only needs ambiguous cases (human casters, mixed groups).
+- **Two layers of gating, in `generateChildrenForNode`:**
+  1. *Central floor (code):* `resolveMagicSpawn` — a magical type never spawns under a **None** ancestor. It spawns its `mundaneVariant` instead if defined, otherwise is skipped. Always enforced, even when a parent has explicit rules.
+  2. *Per-parent rules (data):* child templates may use `conditions: [{ attribute: 'magicLevel', value: ... }]`. These resolve through **ancestors** (not just the node's own attributes) so they work at any depth. A child template with magicLevel conditions owns its own probability (see swamp's `undeadCrypt` entries for the worked example).
+  3. *Fallback chance:* magical child templates WITHOUT magicLevel conditions roll `magicSpawnChance[level][tier]` (Low .5 minor/.15 major, Medium 1/.5, High 1/1), so unconverted biomes still behave sensibly. Convert biomes to explicit rules gradually where flavor matters.
+  Manual "Add Child" is never gated.
+- **Mundane variants** (`mundaneVariants` table): `npcAcolyte`→`npcAcolyteMundane` (commoner), `npcPriest`→`npcPriestMundane` (noble statblock), `npcCourtMage`→`npcCourtAdvisor`. To add one: create the non-magical type and add it to `mundaneVariants`.
+- **Overriding inference for a creature:** the override is per node *type*, not per spawned node. Set `magic: false` (mundane) or `'minor'`/`'major'` on the template to beat creature-type inference — e.g. a dragon turtle or carnivorous plant that is dragon/plant-typed but not innately magical. Containers holding it are judged on their children, so they follow automatically. A variant's own creature type is checked before the base creature's; for a mundane variant of a magical base with the same type, give it its own node type with `magic: false`. If exceptions pile up, the cleaner fix is a creature-level flag in monster-scaler (e.g. `innatelyMagical: false`) read before the creature type.
+- **Adding new content:** usually nothing — undead/fey/fiend/dragon creatures and their groups are picked up automatically. Only add an override for ambiguous types. Known inferred oddity: `forestGrove` is major (awakened trees are `plant` type).
+- Gotchas: conditions with `match: true` on a magic level fail when the level is undefined (old saves without the attribute); knights are un-gated (no spells in the statblock). Possible follow-ups: mundane variants for other casters, convert more biomes to explicit rules, weight pools instead of skip-on-fail.
 ### Category Attributes
 Types that declare `categories` automatically get attributes injected from `categoryAttributes` in `attributeGenerators.ts`. This happens at module load time in `objectTypes.ts` via a post-definition loop. Type-specific attributes take precedence — category attributes are only added if not already defined on the type.
 
 Current categories:
-- `geography` — populationDensity, racialDemographics, temperature
+- `geography` — populationDensity, racialDemographics, temperature, magicLevel
 - `plane` — alignment, element
 - `settlement` — racialDemographics
 
@@ -208,6 +222,7 @@ The UI already groups `'setting'` sources under a "Settings" subheading and omit
 ## Known TODOs / In-Flight
 
 - **TypeScript strictness** is currently `strict: false` — plan to enable incrementally once the shared-package refactor stabilizes
+- **Save migration** — stale saves lack newer attributes (e.g. `magicLevel`), so those nodes show no setting in the info panel and aren't gated by it. Plan a "migrate" action (separate session) that backfills missing template attributes on load, deriving from the parent chain where a generator supports it (e.g. `magicLevelValue`). Decide whether it runs automatically or on demand, and whether it keeps a backup of the original save.
 - **Default root** is `multiverse` — `createRootNode('districtTemple')` in `scripts.ts` is a dev leftover and should be reverted
 - Remaining `//TODO` stubs: moons/celestial bodies
 - **SRD creature coverage** — see `toolkit5e/srd-creatures.md` for the full checklist. NPC statblocks now cover: commoner, guard, bandit, bandit captain, thug, scout, noble, knight, veteran, mage, priest. Major categories remaining: other giants, monstrosities, more humanoid races (kobold, gnoll), constructs, oozes, more undead.

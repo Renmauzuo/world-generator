@@ -72,6 +72,17 @@ export interface ObjectTypeTemplate {
    */
   tags?: string[];
   /**
+   * How magical this type is (`'minor'` | `'major'`). Gates spawning by the nearest ancestor's
+   * `magicLevel`: None never spawns it, Low/Medium spawn it with reduced probability, High
+   * always. Mostly injected from the `magicalTypes` table in constants.ts at module load.
+   */
+  magic?: 'minor' | 'major' | false;
+  /**
+   * Node type to spawn instead when this (magical) type fails its magic-level roll, e.g. a
+   * priest without divine spellcasting. If absent, a failed roll simply skips the spawn.
+   */
+  mundaneVariant?: string;
+  /**
    * Speciation identity for beast types. All node types representing the same animal concept
    * share a speciationId (e.g. 'mammoth' for mammothHerd, mammothBull, mammothCalf).
    * Used as the key in the species registry so related types share a species pool.

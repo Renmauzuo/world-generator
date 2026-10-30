@@ -85,6 +85,44 @@ export function collectAncestorTags(
 }
 
 /**
+ * Resolves the effective magic level for a node by walking up the ancestor chain.
+ * The nearest `magicLevel` attribute wins. Reaching a planar node (one with an `element`
+ * attribute) first means outer planes, which are magical regardless, so returns 'High'.
+ * Returns undefined when nothing applies (e.g. old saves), meaning "don't gate".
+ */
+export function getMagicLevel(node: WorldNode | undefined): string | undefined {
+    let current = node;
+    while (current) {
+        const attrs = current.attributes;
+        if (attrs?.magicLevel) return attrs.magicLevel;
+        if (attrs?.element !== undefined) return 'High';
+        current = current.parent;
+    }
+    return undefined;
+}
+
+/**
+ * Decides what actually spawns for a child type under a given magic level.
+ * Returns the type itself, its mundane variant, or null (skip).
+ */
+export function resolveMagicSpawn(
+    type: string,
+    level: string | undefined,
+    typeMap: Record<string, ObjectTypeTemplate>,
+    chances: Record<string, Record<'minor' | 'major', number>>,
+    explicitRule = false
+): string | null {
+    const template = typeMap[type];
+    if (!template?.magic || !level) return type;
+    // `explicitRule`: the parent's child template already gates this spawn with its own
+    // magicLevel conditions, so it owns the probability. Only the No Magic floor applies.
+    // Otherwise fall back to the default per-level chance.
+    const chance = level === 'None' ? 0 : explicitRule ? 1 : (chances[level]?.[template.magic] ?? 1);
+    if (Math.random() < chance) return type;
+    return template.mundaneVariant ?? null;
+}
+
+/**
  * Deterministic 32-bit seeded PRNG (mulberry32). Returns a generator function
  * that yields floats in the range [0, 1).
  *

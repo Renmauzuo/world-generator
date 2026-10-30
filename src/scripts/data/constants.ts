@@ -9,6 +9,76 @@ export const populationDensity = {
 
 export type PopulationDensity = typeof populationDensity[keyof typeof populationDensity];
 
+/**
+ * How common magic is in a region of the Material Plane.
+ *  - None:   no magic at all (fantasy races and monsters still exist, but nothing magical).
+ *  - Low:    magic is so rare many doubt it exists; a handful of exceptional individuals.
+ *  - Medium: Lord of the Rings style; people know of magic but rarely see it.
+ *  - High:   classic sword & sorcery; magic and magical creatures are commonplace.
+ */
+export const magicLevel = {
+    none: "None",
+    low: "Low",
+    medium: "Medium",
+    high: "High"
+} as const;
+
+export type MagicLevel = typeof magicLevel[keyof typeof magicLevel];
+
+export const magicLevelList: string[] = [
+    magicLevel.none, magicLevel.low, magicLevel.medium, magicLevel.high
+];
+
+/**
+ * How "magical" a node type is, for gating by magic level:
+ *  - minor: magic-adjacent content that is merely uncommon in low-magic settings
+ *           (clergy who cast spells, mythological beasts).
+ *  - major: overtly magical content (wizards, undead, fiends, fey, dragons, avatars).
+ */
+export type MagicTier = 'minor' | 'major';
+
+/** Chance (0-1) that a spawn of the given tier goes ahead at each magic level. */
+export const magicSpawnChance: Record<string, Record<MagicTier, number>> = {
+    [magicLevel.none]:   { minor: 0,   major: 0 },
+    [magicLevel.low]:    { minor: 0.5, major: 0.15 },
+    [magicLevel.medium]: { minor: 1,   major: 0.5 },
+    [magicLevel.high]:   { minor: 1,   major: 1 }
+};
+
+/**
+ * Creature types (from `@toolkit5e/base` `creatureTypes`) that are inherently magical.
+ * Creature-backed node types of these types are inferred as 'major' (see magic.ts).
+ */
+export const magicalCreatureTypes: ReadonlySet<string> = new Set([
+    'undead', 'fey', 'fiend', 'celestial', 'elemental', 'dragon', 'plant', 'construct', 'aberration'
+]);
+
+/**
+ * Manual overrides for the magic tier of a node type. Most types do NOT need an entry:
+ * magical creature types, legendary creatures, and containers of mostly-magical children are
+ * inferred automatically (magic.ts). Add an entry here only for ambiguous types (e.g. human
+ * casters, or groups whose children are a mix), or set `magic` directly on the template.
+ * `false` forces a type to be treated as mundane, overriding inference.
+ */
+export const magicalTypes: Record<string, MagicTier | false> = {
+    // Humanoid spellcasters and clergy
+    npcAcolyte: 'minor',
+    npcPriest: 'minor',
+    npcMage: 'major',
+    npcArcanist: 'major',
+    npcCourtMage: 'major',
+    shopMagic: 'major',
+    // Mixed groups the child-based inference would miss
+    undeadHunters: 'major'
+};
+
+/** Non-magical stand-ins used when a magical type fails its magic-level roll. */
+export const mundaneVariants: Record<string, string> = {
+    npcAcolyte: 'npcAcolyteMundane',
+    npcPriest: 'npcPriestMundane',
+    npcCourtMage: 'npcCourtAdvisor'
+};
+
 export const book = {
     monsterManual: "the Monster Manual"
 } as const;

@@ -1,5 +1,5 @@
 import type { ObjectTypeTemplate } from '../../types';
-import { populationDensity, temperatureList } from '../constants';
+import { populationDensity, temperatureList, magicLevel } from '../constants';
 import { arrayWithMixed } from '../../helpers';
 import {
     continentNameGenerator,
@@ -456,14 +456,19 @@ export const geographyTypes: Record<string, ObjectTypeTemplate> = {
             { type: 'crocodileDen', min: 0, max: 2 },
             { type: 'alligatorDen', min: 0, max: 2 },
             { type: 'spiderNest', min: 0, max: 2 },
-            { type: 'shadowHaunt', min: 0, max: 1 },
             { type: 'awakenedTreeCopse', min: 0, max: 1 },
             { type: 'constrictorSnakeNest', min: 0, max: 2 },
             { type: 'giantToadDen', min: 0, max: 2 },
             { type: 'dragonLairBlack', min: 0, max: 1 },
-            // Undead settlements
-            { type: 'undeadCrypt', weightedRange: { 0: 80, 1: 20 } },
-            // NPC wilderness groups — undead hunters are drawn to swamps
+            // Entries without magicLevel conditions (shadowHaunt, undeadHunters, ...) use the default
+            // per-level chance for magical types. Entries WITH magicLevel conditions own their own
+            // probability — worked example below: swamps get thick with crypts as magic rises.
+            // (Either way, a No Magic region never spawns magical types.)
+            { type: 'shadowHaunt', min: 0, max: 1 },
+            { type: 'undeadCrypt', weightedRange: { 0: 92, 1: 8 }, conditions: [{ attribute: 'magicLevel', value: magicLevel.low }] },
+            { type: 'undeadCrypt', weightedRange: { 0: 80, 1: 20 }, conditions: [{ attribute: 'magicLevel', value: magicLevel.medium }] },
+            { type: 'undeadCrypt', weightedRange: { 0: 60, 1: 40 }, conditions: [{ attribute: 'magicLevel', value: magicLevel.high }] },
+            // NPC wilderness groups — undead hunters are drawn to swamps wherever undead can be
             { type: 'undeadHunters', weightedRange: { 0: 75, 1: 25 } },
             { type: 'banditCamp', weightedRange: { 0: 85, 1: 15 } },
             { type: 'scoutParty', weightedRange: { 0: 80, 1: 20 } },

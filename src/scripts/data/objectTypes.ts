@@ -5,6 +5,7 @@ import { geographyTypes } from './objectTypes/geographyTypes';
 import { settlementObjTypes, setObjectTypesRef as setSettlementRef } from './objectTypes/settlementTypes';
 import { creatureTypes, setObjectTypesRef as setCreatureRef } from './objectTypes/creatureTypes';
 import { setObjectTypesRef as setMapGeneratorRef } from '../mapGenerator';
+import { applyMagicTiers } from '../magic';
 
 export const objectTypes: Record<string, ObjectTypeTemplate> = {
     ...planarTypes,
@@ -19,6 +20,10 @@ setSettlementRef(objectTypes);
 setCreatureRef(objectTypes);
 setAttributeGeneratorsRef(objectTypes);
 setMapGeneratorRef(objectTypes);
+
+// Infer which types are magical (creature type, legendary, mostly-magical children) and wire
+// mundane variants. Manual overrides in constants.ts / template.magic take precedence.
+applyMagicTiers(objectTypes);
 
 // Mix in category attributes for all types that declare categories.
 // Type-specific attributes take precedence — category attributes are only added if not already defined.

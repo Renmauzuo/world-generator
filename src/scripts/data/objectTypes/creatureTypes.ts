@@ -680,6 +680,24 @@ export const creatureTypes: Record<string, ObjectTypeTemplate> = {
         customSetup: npcSetup,
         attributes: { challengeRating: { min: 2, max: 5 }, worship: '', alignment: '', lineage: '' }
     },
+    // Non-magical clergy: the same temple roles without divine spellcasting, used when the
+    // magic level rules out casters (see `mundaneVariants` in constants.ts).
+    npcAcolyteMundane: {
+        typeName: "Acolyte",
+        nameGenerator: npcNameGenerator,
+        creature: "commoner",
+        inheritAttributes: ["worship"],
+        customSetup: npcSetup,
+        attributes: { challengeRating: [0], worship: '', alignment: '', lineage: '' }
+    },
+    npcPriestMundane: {
+        typeName: "Priest",
+        nameGenerator: npcNameGenerator,
+        creature: "noble",
+        inheritAttributes: ["worship"],
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5, 1], worship: '', alignment: '', lineage: '' }
+    },
     npcGuard: {
         typeName: "Guard",
         nameGenerator: npcNameGenerator,

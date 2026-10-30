@@ -2,7 +2,7 @@ import type { ObjectTypeTemplate } from '../../types';
 import { sourceKeys } from '@toolkit5e/base';
 import { alignmentList, elementList } from '../constants';
 import { collectAncestorTags } from '../../helpers';
-import { deitySetup, avatarSetup } from '../../attributeGenerators';
+import { deitySetup, avatarSetup, magicLevelValue } from '../../attributeGenerators';
 import { getRegisteredNodes } from '../../nodeRegistry';
 import {
     planarClusterNameGenerator,
@@ -46,6 +46,8 @@ export const planarTypes: Record<string, ObjectTypeTemplate> = {
         mapCapable: true,
         mapLayout: 'diagram',
         nameGenerator: materialPlaneNameGenerator,
+        // Root of the magic-level hierarchy: planets (and everything below) derive from this.
+        attributes: { magicLevel: magicLevelValue },
         children: [
             { type: "planet", min: 1, max: 10 }
             //TODO: Moons, maybe? Or other celestial bodies

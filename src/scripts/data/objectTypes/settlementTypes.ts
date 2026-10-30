@@ -547,6 +547,14 @@ export const settlementObjTypes: Record<string, ObjectTypeTemplate> = {
         customSetup: npcSetup,
         attributes: { challengeRating: { min: 4, max: 8 }, alignment: '', lineage: '' }
     },
+    // Non-magical stand-in for the court mage (used when the magic level rules out wizards)
+    npcCourtAdvisor: {
+        typeName: "Court Advisor",
+        nameGenerator: npcNameGenerator,
+        creature: "noble",
+        customSetup: npcSetup,
+        attributes: { challengeRating: [.125, .25, .5, 1], alignment: '', lineage: '' }
+    },
     npcHerald: {
         typeName: "Herald",
         nameGenerator: npcNameGenerator,

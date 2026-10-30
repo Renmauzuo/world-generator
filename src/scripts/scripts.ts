@@ -2,7 +2,8 @@ import type { WorldNode } from './types';
 import { objectTypes } from './data/objectTypes';
 import { presets } from './data/presets/index';
 import { attributeEditors, labels, deityDomains } from './attributeGenerators';
-import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize } from './helpers';
+import { rand, randFromArray, weightedRand, shouldInheritAttribute, capitalize, getMagicLevel, resolveMagicSpawn } from './helpers';
+import { magicSpawnChance } from './data/constants';
 import { queuedName, setQueuedName } from './nameGenerators';
 import { registerNode, clearRegistry, registerTree, getRegisteredNodes } from './nodeRegistry';
 import { getToggleableSources, isSourceEnabled, setSourceEnabled, isTypeSourceEnabled } from './sources';
@@ -886,6 +887,8 @@ function generateChildrenForNode(node: WorldNode): void {
         node.children = [];
     }
     const maxAttempts = 3;
+    // Effective magic level (nearest ancestor), used to gate magical child types
+    const magic = getMagicLevel(node);
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         let childrenAdded = 0;
         const childTemplates = objectTypes[node.type]?.children;
@@ -896,12 +899,15 @@ function generateChildrenForNode(node: WorldNode): void {
             let valid = true;
             if (childTemplate.conditions && childTemplate.conditions.length > 0) {
                 valid = childTemplate.conditions.some(condition => {
-                    const nodeValue = node.attributes?.[condition.attribute];
+                    // magicLevel resolves through ancestors so rules work at any depth
+                    const nodeValue = condition.attribute === 'magicLevel' ? magic : node.attributes?.[condition.attribute];
                     const shouldMatch = condition.match ?? true;
                     return shouldMatch ? nodeValue === condition.value : nodeValue !== condition.value;
                 });
             }
             if (valid) {
+                // Child templates with their own magicLevel conditions own their probability
+                const hasMagicRule = !!childTemplate.conditions?.some(c => c.attribute === 'magicLevel');
                 let numChildren: number;
                 if (childTemplate.weightedRange) {
                     numChildren = parseInt(weightedRand(childTemplate.weightedRange), 10);
@@ -928,10 +934,15 @@ function generateChildrenForNode(node: WorldNode): void {
                     } else {
                         childType = childTemplate.type as string;
                     }
-                    addChildToNode(childType, node);
+                    // Magic level gate: the type may spawn as-is, be swapped for its mundane
+                    // variant, or be skipped (e.g. no wizards in a No Magic region).
+                    const resolvedType = resolveMagicSpawn(childType, magic, objectTypes, magicSpawnChance, hasMagicRule);
+                    if (!resolvedType) continue;
+                    addChildToNode(resolvedType, node);
                     // Only add the required sibling if its source is enabled too.
                     if (childTemplate.requiredSibling && isTypeSourceEnabled(childTemplate.requiredSibling)) {
-                        addChildToNode(childTemplate.requiredSibling, node);
+                        const resolvedSibling = resolveMagicSpawn(childTemplate.requiredSibling, magic, objectTypes, magicSpawnChance, hasMagicRule);
+                        if (resolvedSibling) addChildToNode(resolvedSibling, node);
                     }
                     childrenAdded++;
                 }

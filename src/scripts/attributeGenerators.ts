@@ -1,5 +1,5 @@
 import type { ObjectTypeTemplate, WorldNode } from './types';
-import { populationDensity, alignmentList, elementList, temperatureList, races } from './data/constants';
+import { populationDensity, alignmentList, elementList, temperatureList, races, magicLevel, magicLevelList } from './data/constants';
 import { weightedRand, rand, collectAncestorTags } from './helpers';
 import { getRegisteredNodes } from './nodeRegistry';
 import { averageStats, races as toolkit5eRaces } from '@toolkit5e/base';
@@ -52,6 +52,48 @@ export function populationDensityValue(node: WorldNode): string {
     return weightedRand(defaultDensityWeight);
 }
 
+/**
+ * Magic level for a Material Plane node. Derived from the parent with some variance, so a
+ * High-magic plane may contain a lower-magic world and a Low-magic world may have unusually
+ * mystical regions. None is absolute: a no-magic parent only produces no-magic children.
+ * Outer-plane descendants (anything below a node with an `element`) are always High, since
+ * planes are magical no matter what.
+ */
+export function magicLevelValue(node: WorldNode): string {
+    for (let a = node.parent; a; a = a.parent) {
+        if (a.attributes?.magicLevel) break;
+        if (a.attributes?.element !== undefined) return magicLevel.high;
+    }
+    const weights: Record<string, number> = {};
+    switch (node.parent?.attributes?.magicLevel) {
+        case magicLevel.none:
+            return magicLevel.none;
+        case magicLevel.low:
+            weights[magicLevel.none] = 10;
+            weights[magicLevel.low] = 55;
+            weights[magicLevel.medium] = 25;
+            weights[magicLevel.high] = 10;
+            break;
+        case magicLevel.medium:
+            weights[magicLevel.low] = 20;
+            weights[magicLevel.medium] = 60;
+            weights[magicLevel.high] = 20;
+            break;
+        case magicLevel.high:
+            weights[magicLevel.low] = 5;
+            weights[magicLevel.medium] = 25;
+            weights[magicLevel.high] = 70;
+            break;
+        default:
+            // No magic-level ancestor — fresh roll
+            weights[magicLevel.none] = 5;
+            weights[magicLevel.low] = 25;
+            weights[magicLevel.medium] = 40;
+            weights[magicLevel.high] = 30;
+    }
+    return weightedRand(weights);
+}
+
 export function racialDemographicsValue(node: WorldNode): Record<string, number> {
     const newDemographics: Record<string, number> = {};
 
@@ -87,7 +129,8 @@ export const categoryAttributes: Record<string, Record<string, any>> = {
     geography: {
         populationDensity: populationDensityValue,
         racialDemographics: racialDemographicsValue,
-        temperature: temperatureList
+        temperature: temperatureList,
+        magicLevel: magicLevelValue
     },
     plane: {
         alignment: alignmentList,
@@ -106,6 +149,7 @@ export const attributeEditors: Record<string, any> = {
         populationDensity.average,
         populationDensity.high
     ],
+    magicLevel: magicLevelList,
     challengeRating: challengeRatingList,
     alignment: alignmentList,
     gender: ['Male', 'Female', 'Non-binary'],
@@ -118,6 +162,7 @@ export const attributeEditors: Record<string, any> = {
 /** Human-readable labels for attribute keys. */
 export const labels: Record<string, string> = {
     populationDensity: "Population Density",
+    magicLevel: "Magic Level",
     racialDemographics: "Racial Demographics",
     dominantRace: "Dominant Race",
     challengeRating: "Challenge Rating",
